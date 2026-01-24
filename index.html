@@ -1,0 +1,2674 @@
+
+You said:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLHF and PPO: A Complete Deep Dive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <style>
+        :root {
+            --color-bg: #FDFBF7;
+            --color-bg-alt: #F7F4EE;
+            --color-bg-code: #F0EDE6;
+            --color-text: #2C3E50;
+            --color-text-light: #5D6D7E;
+            --color-text-muted: #8395A7;
+            --color-accent: #C0392B;
+            --color-accent-light: #E74C3C;
+            --color-link: #2980B9;
+            --color-link-hover: #1A5276;
+            --color-border: #D5D1C9;
+            --color-border-light: #E8E4DC;
+            --color-highlight: #FEF9E7;
+            --color-success: #27AE60;
+            --color-warning: #F39C12;
+            --font-serif: 'Crimson Pro', Georgia, serif;
+            --font-sans: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --max-width: 780px;
+            --spacing-unit: 1.5rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-serif);
+            font-size: 19px;
+            line-height: 1.75;
+            color: var(--color-text);
+            background-color: var(--color-bg);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Annotation Canvas Overlay */
+        #annotationCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        #annotationCanvas.active {
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        body.drawing-mode {
+            cursor: crosshair;
+        }
+
+        /* Annotation Toolbar */
+        .annotation-toolbar {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FFFFFF;
+            border-radius: 50px;
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            border: 2px solid var(--color-border);
+        }
+
+        .annotation-toolbar.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .toolbar-btn {
+            width: 44px;
+            height: 44px;
+            border: 2px solid transparent;
+            background: var(--color-bg-alt);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 20px;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--color-bg-code);
+            transform: scale(1.1);
+        }
+
+        .toolbar-btn.active {
+            border-color: var(--color-accent);
+            background: rgba(192, 57, 43, 0.15);
+        }
+
+        .color-btn {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #FFF;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .color-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .color-btn.active {
+            border-color: #333;
+            transform: scale(1.25);
+        }
+
+        .toolbar-divider {
+            width: 2px;
+            height: 30px;
+            background: var(--color-border);
+        }
+
+        /* Presentation Toggle Button */
+        .presentation-toggle {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--color-accent) 0%, #E74C3C 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(192, 57, 43, 0.5);
+            z-index: 10001;
+            transition: all 0.3s ease;
+            font-size: 24px;
+        }
+
+        .presentation-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .presentation-toggle.active {
+            background: linear-gradient(135deg, #27AE60 0%, #2ECC71 100%);
+            box-shadow: 0 4px 20px rgba(39, 174, 96, 0.5);
+        }
+
+        /* Mode indicator */
+        .mode-indicator {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #27AE60;
+            color: white;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 24px;
+            border-radius: 30px;
+            z-index: 10001;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        .mode-indicator.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(180deg, #FFFFFF 0%, var(--color-bg) 100%);
+            border-bottom: 1px solid var(--color-border-light);
+            padding: 3rem 2rem 4rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--color-accent), var(--color-link), var(--color-success));
+        }
+
+        .header-decoration {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 120px;
+            height: 120px;
+            opacity: 0.06;
+            background: 
+                radial-gradient(circle at 30% 30%, var(--color-accent) 2px, transparent 2px),
+                radial-gradient(circle at 70% 70%, var(--color-link) 2px, transparent 2px);
+            background-size: 20px 20px;
+            border-radius: 50%;
+        }
+
+        .header-label {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: 1rem;
+            display: inline-block;
+            padding: 0.35rem 1rem;
+            background: rgba(192, 57, 43, 0.08);
+            border-radius: 20px;
+        }
+
+        h1 {
+            font-family: var(--font-serif);
+            font-size: 2.75rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--color-text);
+            max-width: 800px;
+            margin: 0 auto 1.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            font-style: italic;
+            color: var(--color-text-light);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .meta {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .meta-icon {
+            width: 18px;
+            height: 18px;
+            opacity: 0.6;
+        }
+
+        /* Navigation */
+        nav {
+            background: #FFFFFF;
+            border-bottom: 1px solid var(--color-border-light);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+
+        .nav-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-title {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--color-text);
+        }
+
+        .nav-progress {
+            height: 3px;
+            background: var(--color-border-light);
+            border-radius: 3px;
+            width: 200px;
+            overflow: hidden;
+        }
+
+        .nav-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-accent), var(--color-link));
+            width: 0%;
+            transition: width 0.1s ease-out;
+        }
+
+        /* Main Layout */
+        .container {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 3rem;
+            padding: 3rem 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+        }
+
+        /* Sidebar / TOC */
+        .sidebar {
+            position: relative;
+        }
+
+        .toc {
+            position: sticky;
+            top: 100px;
+            background: #FFFFFF;
+            border: 1px solid var(--color-border-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+
+        .toc-title {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--color-border-light);
+        }
+
+        .toc-list {
+            list-style: none;
+        }
+
+        .toc-list li {
+            margin-bottom: 0.5rem;
+        }
+
+        .toc-list a {
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            color: var(--color-text-light);
+            text-decoration: none;
+            display: block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            border-left: 2px solid transparent;
+        }
+
+        .toc-list a:hover {
+            color: var(--color-text);
+            background: var(--color-bg-alt);
+        }
+
+        .toc-list a.active {
+            color: var(--color-accent);
+            background: rgba(192, 57, 43, 0.06);
+            border-left-color: var(--color-accent);
+            font-weight: 500;
+        }
+
+        /* Article Content */
+        article {
+            max-width: var(--max-width);
+        }
+
+        h2 {
+            font-family: var(--font-serif);
+            font-size: 1.9rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 3.5rem 0 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--color-border-light);
+            letter-spacing: -0.01em;
+        }
+
+        h2:first-child {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        h3 {
+            font-family: var(--font-sans);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 2.5rem 0 1rem;
+        }
+
+        h4 {
+            font-family: var(--font-sans);
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--color-text-light);
+            margin: 2rem 0 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+        }
+
+        a {
+            color: var(--color-link);
+            text-decoration: underline;
+            text-decoration-color: rgba(41, 128, 185, 0.3);
+            text-underline-offset: 3px;
+            transition: all 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--color-link-hover);
+            text-decoration-color: var(--color-link-hover);
+        }
+
+        strong {
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        em {
+            font-style: italic;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        li::marker {
+            color: var(--color-accent);
+        }
+
+        /* Code */
+        code {
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            background: var(--color-bg-code);
+            padding: 0.2em 0.45em;
+            border-radius: 4px;
+            color: var(--color-accent);
+        }
+
+        pre {
+            background: #2D3436;
+            color: #DFE6E9;
+            padding: 1.5rem;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 1.5rem 0 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0 2rem;
+            font-size: 0.95rem;
+            background: #FFFFFF;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        }
+
+        th {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            text-align: left;
+            padding: 1rem 1.25rem;
+            background: var(--color-bg-alt);
+            color: var(--color-text);
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        td {
+            padding: 0.9rem 1.25rem;
+            border-bottom: 1px solid var(--color-border-light);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: var(--color-highlight);
+        }
+
+        /* Math */
+        .katex-display {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #FFFFFF 0%, var(--color-bg-alt) 100%);
+            border-radius: 10px;
+            border: 1px solid var(--color-border-light);
+            overflow-x: auto;
+        }
+
+        .katex {
+            font-size: 1.1em;
+        }
+
+        /* Callout boxes */
+        .callout {
+            padding: 1.5rem 1.75rem;
+            border-radius: 10px;
+            margin: 2rem 0;
+            border-left: 4px solid;
+        }
+
+        .callout-info {
+            background: linear-gradient(135deg, #EBF5FB 0%, #D4E6F1 100%);
+            border-left-color: var(--color-link);
+        }
+
+        .callout-warning {
+            background: linear-gradient(135deg, #FEF9E7 0%, #FCF3CF 100%);
+            border-left-color: var(--color-warning);
+        }
+
+        .callout-success {
+            background: linear-gradient(135deg, #E8F8F5 0%, #D1F2EB 100%);
+            border-left-color: var(--color-success);
+        }
+
+        .callout-title {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .callout p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Key insight boxes */
+        .key-insight {
+            background: #FFFFFF;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .key-insight::before {
+            content: 'Key Insight';
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--color-accent);
+            color: white;
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            letter-spacing: 0.03em;
+        }
+
+        /* Example boxes */
+        .example {
+            background: var(--color-bg-alt);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .example-title {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Diagrams and figures */
+        .figure {
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .figure-box {
+            background: #FFFFFF;
+            border: 1px solid var(--color-border-light);
+            border-radius: 12px;
+            padding: 2rem;
+            display: inline-block;
+        }
+
+        .figure-caption {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            margin-top: 1rem;
+            font-style: italic;
+        }
+
+        /* Flow diagrams */
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding: 1rem 0;
+        }
+
+        .flow-box {
+            background: linear-gradient(135deg, #FFFFFF 0%, var(--color-bg-alt) 100%);
+            border: 1px solid var(--color-border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .flow-box.highlight {
+            background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%);
+            color: white;
+            border-color: var(--color-accent);
+        }
+
+        .flow-arrow {
+            color: var(--color-text-muted);
+            font-size: 1.25rem;
+        }
+
+        /* Timeline / steps */
+        .steps {
+            margin: 2rem 0;
+            padding-left: 0;
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .steps li {
+            position: relative;
+            padding-left: 3.5rem;
+            padding-bottom: 1.5rem;
+            border-left: 2px solid var(--color-border-light);
+            margin-left: 1rem;
+        }
+
+        .steps li:last-child {
+            border-left-color: transparent;
+            padding-bottom: 0;
+        }
+
+        .steps li::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: -1rem;
+            top: 0;
+            width: 2rem;
+            height: 2rem;
+            background: var(--color-accent);
+            color: white;
+            border-radius: 50%;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--color-bg-alt);
+            border-top: 1px solid var(--color-border-light);
+            padding: 3rem 2rem;
+            margin-top: 4rem;
+        }
+
+        .footer-content {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-content h3 {
+            margin-top: 0;
+        }
+
+        .references {
+            background: #FFFFFF;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+
+        .references ul {
+            margin-bottom: 0;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        section {
+            opacity: 0;
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        section:nth-child(1) { animation-delay: 0.1s; }
+        section:nth-child(2) { animation-delay: 0.15s; }
+        section:nth-child(3) { animation-delay: 0.2s; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body {
+                font-size: 17px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            h2 {
+                font-size: 1.5rem;
+            }
+            
+            header {
+                padding: 2rem 1.5rem 3rem;
+            }
+            
+            .container {
+                padding: 2rem 1.25rem;
+            }
+            
+            .meta {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            nav, .sidebar {
+                display: none;
+            }
+            
+            .container {
+                display: block;
+            }
+            
+            section {
+                opacity: 1;
+                animation: none;
+            }
+        }
+
+        /* Interactive Cat Grid Demo */
+        .interactive-demo {
+            background: linear-gradient(135deg, #FFFFFF 0%, var(--color-bg-alt) 100%);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+
+        .demo-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .demo-label {
+            display: inline-block;
+            background: var(--color-accent);
+            color: white;
+            font-family: var(--font-sans);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.75rem;
+        }
+
+        .demo-header h4 {
+            margin: 0.5rem 0;
+            font-size: 1.3rem;
+        }
+
+        .demo-header p {
+            color: var(--color-text-light);
+            font-size: 0.95rem;
+            margin-bottom: 0;
+        }
+
+        .grid-container {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .grid-world {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 4px;
+            background: var(--color-border);
+            padding: 4px;
+            border-radius: 12px;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .grid-cell {
+            width: 52px;
+            height: 52px;
+            background: #FFFFFF;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .grid-cell.visited {
+            background: #E8F6E8;
+        }
+
+        .grid-cell.cat-cell {
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+        }
+
+        .grid-cell.broom-cell {
+            background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+        }
+
+        .grid-cell.bath-cell {
+            background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        }
+
+        .grid-cell.meat-cell {
+            background: linear-gradient(135deg, #FCE4EC 0%, #F8BBD9 100%);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .grid-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            min-width: 180px;
+        }
+
+        .score-panel {
+            background: #FFFFFF;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--color-border-light);
+        }
+
+        .score-item:last-child {
+            border-bottom: none;
+        }
+
+        .score-label {
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+        }
+
+        .score-value {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .score-value.positive {
+            color: var(--color-success);
+        }
+
+        .score-value.negative {
+            color: var(--color-accent);
+        }
+
+        .control-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            border: 1px solid var(--color-border);
+            background: #FFFFFF;
+            border-radius: 10px;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: var(--font-sans);
+            color: var(--color-text);
+        }
+
+        .control-btn:hover {
+            background: var(--color-bg-alt);
+            border-color: var(--color-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+            background: var(--color-border-light);
+        }
+
+        .reset-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--color-accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reset-btn:hover {
+            background: var(--color-accent-light);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+        }
+
+        .legend {
+            background: #FFFFFF;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0;
+            color: var(--color-text-light);
+        }
+
+        .legend-icon {
+            font-size: 1.2rem;
+            width: 28px;
+            text-align: center;
+        }
+
+        .cat-icon {
+            animation: catBounce 1s infinite;
+        }
+
+        @keyframes catBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .trajectory-display {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #FFFFFF;
+            border-radius: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .trajectory-label {
+            color: var(--color-text-muted);
+            font-family: var(--font-sans);
+            font-weight: 600;
+        }
+
+        .trajectory-content {
+            color: var(--color-text);
+        }
+
+        .game-message {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            display: none;
+        }
+
+        .game-message.win {
+            display: block;
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            color: #2E7D32;
+            border: 1px solid #A5D6A7;
+        }
+
+        .game-message.lose {
+            display: block;
+            background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+            color: #C62828;
+            border: 1px solid #EF9A9A;
+        }
+
+        @media (max-width: 600px) {
+            .grid-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .grid-cell {
+                width: 44px;
+                height: 44px;
+                font-size: 1.4rem;
+            }
+            
+            .grid-controls {
+                width: 100%;
+            }
+        }
+
+        /* Discounted Rewards Game Styles */
+        .discount-explainer {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .formula-box {
+            display: inline-block;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%);
+            border: 2px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+        }
+
+        .formula-label {
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .formula {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            color: var(--color-text);
+            font-weight: 500;
+        }
+
+        .gamma-selector {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .gamma-selector label {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--color-text);
+            display: block;
+            margin-bottom: 0.75rem;
+        }
+
+        .gamma-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .gamma-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--color-border);
+            background: #FFFFFF;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .gamma-btn:hover {
+            border-color: var(--color-accent);
+            background: var(--color-bg-alt);
+        }
+
+        .gamma-btn.active {
+            border-color: var(--color-accent);
+            background: var(--color-accent);
+            color: white;
+        }
+
+        .highlight-score {
+            background: linear-gradient(135deg, #FEF9E7 0%, #FCF3CF 100%);
+            margin: 0.25rem -1rem;
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px;
+        }
+
+        .reward-breakdown {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #FFFFFF;
+            border-radius: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: nowrap;
+            border: 1px solid var(--color-border-light);
+        }
+
+        .breakdown-label {
+            color: var(--color-text-muted);
+            font-family: var(--font-sans);
+            font-weight: 600;
+        }
+
+        .breakdown-content {
+            color: var(--color-text);
+        }
+
+        .breakdown-content .discount-term {
+            color: var(--color-link);
+        }
+
+        .breakdown-content .reward-term {
+            color: var(--color-accent);
+        }
+
+        .insight-box {
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: linear-gradient(135deg, #E8F6F3 0%, #D1F2EB 100%);
+            border-radius: 10px;
+            border-left: 4px solid var(--color-success);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .insight-box strong {
+            color: var(--color-success);
+        }
+
+        .grid-cell.fish-cell {
+            background: linear-gradient(135deg, #E8F4FD 0%, #BEE3F8 100%);
+        }
+    </style>
+</head>
+<body>
+    <!-- Annotation Canvas -->
+    <canvas id="annotationCanvas"></canvas>
+    
+    <!-- Mode Indicator -->
+    <div class="mode-indicator" id="modeIndicator">Drawing Mode - Press ESC to exit</div>
+    
+    <!-- Annotation Toolbar -->
+    <div class="annotation-toolbar" id="annotationToolbar">
+        <button class="toolbar-btn active" id="penTool" title="Pen">&#9998;</button>
+        <button class="toolbar-btn" id="eraserTool" title="Eraser">&#9003;</button>
+        
+        <div class="toolbar-divider"></div>
+        
+        <button class="color-btn active" data-color="#E74C3C" style="background: #E74C3C;"></button>
+        <button class="color-btn" data-color="#3498DB" style="background: #3498DB;"></button>
+        <button class="color-btn" data-color="#27AE60" style="background: #27AE60;"></button>
+        <button class="color-btn" data-color="#F39C12" style="background: #F39C12;"></button>
+        <button class="color-btn" data-color="#2C3E50" style="background: #2C3E50;"></button>
+        
+        <div class="toolbar-divider"></div>
+        
+        <button class="toolbar-btn" id="undoBtn" title="Undo">&#8630;</button>
+        <button class="toolbar-btn" id="clearBtn" title="Clear All">&#128465;</button>
+    </div>
+    
+    <!-- Presentation Toggle Button -->
+    <button class="presentation-toggle" id="presentationToggle" title="Toggle Drawing Mode (Press D)">&#9998;</button>
+
+    <header>
+        <div class="header-decoration"></div>
+        <span class="header-label">Technical Deep Dive</span>
+        <h1>RLHF and PPO: A Complete Deep Dive into Training Language Models with Human Feedback</h1>
+        <p class="subtitle">Based on Umar Jamil's presentation and detailed study notes</p>
+        <div class="meta">
+            <span class="meta-item">
+                <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                ~25 min read
+            </span>
+            <span class="meta-item">
+                <svg class="meta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+                RLHF, PPO, Reinforcement Learning, LLMs
+            </span>
+        </div>
+    </header>
+
+    <nav>
+        <div class="nav-inner">
+            <span class="nav-title">RLHF & PPO Deep Dive</span>
+            <div class="nav-progress">
+                <div class="nav-progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="sidebar">
+            <div class="toc">
+                <div class="toc-title">Contents</div>
+                <ul class="toc-list">
+                    <li><a href="#introduction">Introduction</a></li>
+                    <li><a href="#language-models">Language Models Basics</a></li>
+                    <li><a href="#ai-alignment">AI Alignment</a></li>
+                    <li><a href="#rl-fundamentals">RL Fundamentals</a></li>
+                    <li><a href="#reward-model">The Reward Model</a></li>
+                    <li><a href="#trajectories">Trajectories</a></li>
+                    <li><a href="#reinforce">REINFORCE Algorithm</a></li>
+                    <li><a href="#variance">Reducing Variance</a></li>
+                    <li><a href="#importance-sampling">Importance Sampling</a></li>
+                    <li><a href="#ppo">PPO Algorithm</a></li>
+                    <li><a href="#reward-hacking">Reward Hacking</a></li>
+                    <li><a href="#conclusion">Conclusion</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <article>
+            <!-- Introduction -->
+            <section id="introduction">
+                <h2>Introduction</h2>
+                <p>Reinforcement Learning from Human Feedback (RLHF) has become the cornerstone technique for aligning large language models with human preferences. This blog post provides a comprehensive walkthrough of RLHF and Proximal Policy Optimization (PPO), covering the mathematical foundations, intuitions, and practical implementation details.</p>
+                
+                <div class="callout callout-info">
+                    <div class="callout-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Prerequisites
+                    </div>
+                    <ul>
+                        <li>Basics of probability and statistics</li>
+                        <li>Fundamentals of deep learning (gradient descent, loss functions)</li>
+                        <li>Basic RL concepts (agent, state, environment, reward)</li>
+                        <li>Understanding of Transformer models and language models</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Language Models Basics -->
+            <section id="language-models">
+                <h2>Language Models Basics</h2>
+                <p>A language model is a <strong>probabilistic model that assigns probabilities to sequences of words</strong>. In practice, it computes the probability of the next token given a prompt:</p>
+                
+                <div class="katex-display">
+                    $$P[\text{next\_token} \mid \text{"Shanghai is a city in"}]$$
+                </div>
+                
+                <p>Given a prompt, the model outputs a probability distribution over all tokens in the vocabulary, indicating how likely each token is to be the next one:</p>
+                
+                <table>
+                    <thead>
+                        <tr><th>Token</th><th>Probability</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>China</td><td>85%</td></tr>
+                        <tr><td>Beijing</td><td>10%</td></tr>
+                        <tr><td>Cat</td><td>2.5%</td></tr>
+                        <tr><td>...</td><td>...</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Iterative Token Generation</h3>
+                <p>To generate a complete response, the language model is queried iteratively. Each generated token becomes part of the input for the next iteration:</p>
+                
+                <div class="example">
+                    <div class="example-title">Generation Steps</div>
+                    <pre><code>Time 0: "Where is Shanghai?" -> LLM -> "Shanghai"
+Time 1: "Where is Shanghai? Shanghai" -> LLM -> "is"
+Time 2: "Where is Shanghai? Shanghai is" -> LLM -> "in"
+Time 3: "Where is Shanghai? Shanghai is in" -> LLM -> "China"</code></pre>
+                </div>
+            </section>
+
+            <!-- AI Alignment -->
+            <section id="ai-alignment">
+                <h2>AI Alignment: Why We Need RLHF</h2>
+                <p>Large language models are pretrained on massive datasets (Wikipedia, billions of web pages), giving them vast "knowledge." However, to use an LLM as a chat assistant (like ChatGPT), we need to <strong>align the model's behavior with desired behaviors</strong>:</p>
+                
+                <ul>
+                    <li>Avoid offensive language</li>
+                    <li>Avoid racist expressions</li>
+                    <li>Follow a particular response style</li>
+                    <li>Be helpful and harmless</li>
+                </ul>
+
+                <div class="key-insight">
+                    <p><strong>The goal of AI alignment</strong> is to ensure the model's behavior matches what we want it to do. RLHF provides a systematic way to incorporate human preferences into the training process.</p>
+                </div>
+            </section>
+
+            <!-- RL Fundamentals -->
+            <section id="rl-fundamentals">
+                <h2>Reinforcement Learning Fundamentals</h2>
+                <p>Reinforcement Learning is concerned with how an intelligent agent should take actions in an environment to <strong>maximize cumulative reward</strong>.</p>
+
+                <h3>The RL Setup (Cat Example)</h3>
+                <p>Let's use a concrete example with a cat navigating a grid:</p>
+                
+                <table>
+                    <thead>
+                        <tr><th>Component</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>Agent</strong></td><td>The cat</td></tr>
+                        <tr><td><strong>State</strong></td><td>Position (x, y) in the grid</td></tr>
+                        <tr><td><strong>Action</strong></td><td>Move up, down, left, or right</td></tr>
+                        <tr><td><strong>Reward</strong></td><td>Empty cell: 0, Broom: -1, Bathtub: -10, Meat: +100</td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Interactive Cat Grid -->
+                <div class="interactive-demo">
+                    <div class="demo-header">
+                        <span class="demo-label">Interactive Demo</span>
+                        <h4>Cat Agent Grid World</h4>
+                        <p>Use arrow keys or buttons to move the cat. Try to reach the meat while avoiding hazards!</p>
+                    </div>
+                    
+                    <div class="grid-container">
+                        <div class="grid-world" id="gridWorld">
+                            <!-- Grid cells will be generated by JS -->
+                        </div>
+                        
+                        <div class="grid-controls">
+                            <div class="score-panel">
+                                <div class="score-item">
+                                    <span class="score-label">Total Reward</span>
+                                    <span class="score-value" id="totalReward">0</span>
+                                </div>
+                                <div class="score-item">
+                                    <span class="score-label">Steps</span>
+                                    <span class="score-value" id="stepCount">0</span>
+                                </div>
+                                <div class="score-item">
+                                    <span class="score-label">Last Reward</span>
+                                    <span class="score-value" id="lastReward">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="control-buttons">
+                                <div class="btn-row">
+                                    <button class="control-btn" id="btnUp">↑</button>
+                                </div>
+                                <div class="btn-row">
+                                    <button class="control-btn" id="btnLeft">←</button>
+                                    <button class="control-btn" id="btnDown">↓</button>
+                                    <button class="control-btn" id="btnRight">→</button>
+                                </div>
+                            </div>
+                            
+                            <button class="reset-btn" id="resetBtn">Reset Game</button>
+                            
+                            <div class="legend">
+                                <div class="legend-item"><span class="legend-icon cat-icon">🐱</span> Agent (Cat)</div>
+                                <div class="legend-item"><span class="legend-icon">🧹</span> Broom (-1)</div>
+                                <div class="legend-item"><span class="legend-icon">🛁</span> Bathtub (-10, Game Over)</div>
+                                <div class="legend-item"><span class="legend-icon">🍖</span> Meat (+100, Win!)</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="trajectory-display">
+                        <span class="trajectory-label">Trajectory τ = </span>
+                        <span class="trajectory-content" id="trajectoryDisplay">(s₀, -)</span>
+                    </div>
+                    
+                    <div class="game-message" id="gameMessage"></div>
+                </div>
+
+                <!-- Second Game: Discounted Rewards -->
+                <div class="interactive-demo" style="margin-top: 2rem;">
+                    <div class="demo-header">
+                        <span class="demo-label">Interactive Demo 2</span>
+                        <h4>Discounted Rewards: Why Timing Matters</h4>
+                        <p>Same grid, but now rewards are discounted by $\gamma^t$ at each time step. Compare the total return!</p>
+                    </div>
+                    
+                    <div class="discount-explainer">
+                        <div class="formula-box">
+                            <span class="formula-label">Discounted Return Formula:</span>
+                            <span class="formula">R = r₀ + γr₁ + γ²r₂ + γ³r₃ + ... = Σ γᵗrₜ</span>
+                        </div>
+                    </div>
+                    
+                    <div class="gamma-selector">
+                        <label>Discount Factor (γ):</label>
+                        <div class="gamma-buttons">
+                            <button class="gamma-btn" data-gamma="0.5">0.5</button>
+                            <button class="gamma-btn" data-gamma="0.7">0.7</button>
+                            <button class="gamma-btn active" data-gamma="0.9">0.9</button>
+                            <button class="gamma-btn" data-gamma="0.99">0.99</button>
+                            <button class="gamma-btn" data-gamma="1.0">1.0 (no discount)</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid-container">
+                        <div class="grid-world" id="gridWorld2">
+                            <!-- Grid cells will be generated by JS -->
+                        </div>
+                        
+                        <div class="grid-controls">
+                            <div class="score-panel">
+                                <div class="score-item">
+                                    <span class="score-label">Raw Reward Sum</span>
+                                    <span class="score-value" id="rawReward2">0</span>
+                                </div>
+                                <div class="score-item highlight-score">
+                                    <span class="score-label">Discounted Return</span>
+                                    <span class="score-value" id="discountedReward2">0</span>
+                                </div>
+                                <div class="score-item">
+                                    <span class="score-label">Steps (t)</span>
+                                    <span class="score-value" id="stepCount2">0</span>
+                                </div>
+                                <div class="score-item">
+                                    <span class="score-label">Current γᵗ</span>
+                                    <span class="score-value" id="currentDiscount2">1.000</span>
+                                </div>
+                            </div>
+                            
+                            <div class="control-buttons">
+                                <div class="btn-row">
+                                    <button class="control-btn" id="btnUp2">↑</button>
+                                </div>
+                                <div class="btn-row">
+                                    <button class="control-btn" id="btnLeft2">←</button>
+                                    <button class="control-btn" id="btnDown2">↓</button>
+                                    <button class="control-btn" id="btnRight2">→</button>
+                                </div>
+                            </div>
+                            
+                            <button class="reset-btn" id="resetBtn2">Reset Game</button>
+                            
+                            <div class="legend">
+                                <div class="legend-item"><span class="legend-icon">🐱</span> Cat (start)</div>
+                                <div class="legend-item"><span class="legend-icon">🐟</span> Fish (+10)</div>
+                                <div class="legend-item"><span class="legend-icon">🧹</span> Broom (-5)</div>
+                                <div class="legend-item"><span class="legend-icon">🍖</span> Meat (+50)</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="reward-breakdown" id="rewardBreakdown2">
+                        <span class="breakdown-label">Return Calculation:</span>
+                        <span class="breakdown-content" id="breakdownContent2">R = 0</span>
+                    </div>
+                    
+                    <div class="trajectory-display">
+                        <span class="trajectory-label">Trajectory:</span>
+                        <span class="trajectory-content" id="trajectoryDisplay2">(s₀)</span>
+                    </div>
+                    
+                    <div class="game-message" id="gameMessage2"></div>
+                    
+                    <div class="insight-box">
+                        <strong>Key Insight:</strong> With γ &lt; 1, the same +50 meat reward is worth more if you reach it sooner! 
+                        <br>At step 2 with γ=0.9: meat = 0.9² × 50 = <strong>40.5</strong>
+                        <br>At step 6 with γ=0.9: meat = 0.9⁶ × 50 = <strong>26.6</strong>
+                    </div>
+                </div>
+
+                <p><strong>Policy</strong>: A policy determines how the agent selects actions given the current state:</p>
+                
+                <div class="katex-display">
+                    $$a_t \sim \pi(\cdot \mid s_t)$$
+                </div>
+
+                <h3>Stochastic Environments</h3>
+                <p>We model the next state as <strong>stochastic</strong> (suppose the cat is "drunk" and doesn't always succeed in moving correctly):</p>
+                
+                <div class="katex-display">
+                    $$s_{t+1} \sim P(\cdot \mid s_t, a_t)$$
+                </div>
+
+                <h3>Connection to Language Models</h3>
+                <p>The RL framework maps directly to language models:</p>
+                
+                <table>
+                    <thead>
+                        <tr><th>RL Concept</th><th>Language Model Equivalent</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Agent</td><td>The language model itself</td></tr>
+                        <tr><td>State</td><td>The prompt (input tokens)</td></tr>
+                        <tr><td>Action</td><td>Which token is selected as next</td></tr>
+                        <tr><td>Policy</td><td>The language model! $a_t \sim \pi(\cdot|s_t)$</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="key-insight">
+                    <p>The language model <strong>IS</strong> the policy because it models the probability of the action space (next token) given the current state (prompt).</p>
+                </div>
+            </section>
+
+            <!-- Reward Model -->
+            <section id="reward-model">
+                <h2>The Reward Model</h2>
+                
+                <h3>The Challenge</h3>
+                <p>Creating a reward model for language models is difficult because it requires assigning a "universally accepted" reward to each response. How do you objectively score free-form text?</p>
+
+                <h3>Reward Model by Comparison</h3>
+                <p>Instead of absolute scores, we can use <strong>pairwise comparisons</strong>. Humans are much better at saying "A is better than B" than assigning absolute scores.</p>
+                
+                <table>
+                    <thead>
+                        <tr><th>Question</th><th>Answer 1</th><th>Answer 2</th><th>Chosen</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Where is Shanghai?</td><td>Shanghai is a city in China</td><td>Shanghai does not exist</td><td>1</td></tr>
+                        <tr><td>What is 2+2?</td><td>4</td><td>2+2 is complicated...</td><td>1</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Reward Model Architecture</h3>
+                <p>The reward model is typically a language model with a linear layer on top:</p>
+                
+                <div class="figure">
+                    <div class="flow-diagram">
+                        <span class="flow-box">Input tokens</span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box">Transformer</span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box">Hidden States</span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box">Linear (1 output)</span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box highlight">Reward</span>
+                    </div>
+                </div>
+
+                <h3>The Reward Model Loss Function</h3>
+                <p>The loss function for training the reward model is:</p>
+                
+                <div class="katex-display">
+                    $$\text{Loss} = -\log \sigma(r(x, y_w) - r(x, y_l))$$
+                </div>
+                
+                <p>Where $r(x, y_w)$ is the reward for the <strong>winning</strong> response and $r(x, y_l)$ is the reward for the <strong>losing</strong> response.</p>
+
+                <div class="example">
+                    <div class="example-title">Example Calculation (Correct Ordering)</div>
+                    <pre><code>r(x, y_w) = 1 (good answer)
+r(x, y_l) = 0.5 (bad answer)
+Difference = 1 - 0.5 = 0.5
+sigma(0.5) = 0.625
+-log(0.625) = 0.204 (small loss - good!)</code></pre>
+                </div>
+
+                <div class="example">
+                    <div class="example-title">Example Calculation (Incorrect Ordering)</div>
+                    <pre><code>r(x, y_w) = 0.5 (good answer, but scored low)
+r(x, y_l) = 1 (bad answer, but scored high)
+Difference = 0.5 - 1 = -0.5
+sigma(-0.5) = 0.3754
+-log(0.3754) = 0.450 (larger loss - model penalized!)</code></pre>
+                </div>
+
+                <p>This loss forces the model to give high rewards to "winning" responses and low rewards to "losing" responses.</p>
+            </section>
+
+            <!-- Trajectories -->
+            <section id="trajectories">
+                <h2>Trajectories and Policy Optimization</h2>
+                
+                <h3>What is a Trajectory?</h3>
+                <p>A trajectory is a sequence of (state, action) pairs starting from an initial state:</p>
+                
+                <div class="katex-display">
+                    $$\tau = (s_0, a_0, s_1, a_1, \ldots)$$
+                </div>
+
+                <h3>Trajectory Probability</h3>
+                <p>The probability of a trajectory under policy $\pi$ is:</p>
+                
+                <div class="katex-display">
+                    $$P(\tau | \pi) = \rho_0(s_0) \prod_{t=0}^{T-1} P(s_{t+1}|s_t, a_t) \cdot \pi(a_t|s_t)$$
+                </div>
+
+                <h3>Discounted Rewards</h3>
+                <p>We work with discounted rewards (preferring immediate rewards over future ones):</p>
+                
+                <div class="katex-display">
+                    $$R(\tau) = \sum_{t=0}^{\infty} \gamma^t r_t$$
+                </div>
+                
+                <p>Where $\gamma \in (0, 1)$ is the discount factor. As time steps increase, rewards are decayed by $\gamma^t$.</p>
+
+                <h3>Trajectories in Language Models</h3>
+                <p>For language models, a trajectory is a series of prompts (states) and next tokens (actions):</p>
+                
+                <div class="example">
+                    <div class="example-title">LLM Trajectory Example</div>
+                    <pre><code>"Where is Shanghai?" -> [Shanghai] -> [is] -> [in] -> [China]
+       s_0              a_0          a_1      a_2      a_3</code></pre>
+                </div>
+            </section>
+
+            <!-- REINFORCE -->
+            <section id="reinforce">
+                <h2>The REINFORCE Algorithm</h2>
+                
+                <h3>Policy Gradient Optimization</h3>
+                <p>We have a policy $\pi_\theta$ parameterized by $\theta$. We want to maximize the expected return:</p>
+                
+                <div class="katex-display">
+                    $$\pi^* = \arg\max_\pi J(\pi) \quad \text{where} \quad J(\pi_\theta) = \mathbb{E}_{\tau \sim \pi_\theta}[R(\tau)]$$
+                </div>
+                
+                <p>We use <strong>Stochastic Gradient Ascent</strong> to optimize:</p>
+                
+                <div class="katex-display">
+                    $$\theta_{k+1} = \theta_k + \alpha \nabla_\theta J(\pi_\theta)|_{\theta_k}$$
+                </div>
+
+                <h3>The Log-Derivative Trick</h3>
+                <p>The key derivation uses the <strong>log-derivative trick</strong> (also called the score function estimator):</p>
+                
+                <div class="katex-display">
+                    $$\nabla_\theta P(\tau|\theta) = P(\tau|\theta) \nabla_\theta \log P(\tau|\theta)$$
+                </div>
+
+                <h4>Step-by-step derivation:</h4>
+                <ol class="steps">
+                    <li>Start with the gradient of expected return: $\nabla_\theta J(\pi_\theta) = \nabla_\theta \mathbb{E}_{\tau \sim \pi_\theta}[R(\tau)]$</li>
+                    <li>Expand the expectation: $= \nabla_\theta \int_\tau P(\tau|\theta) R(\tau)$</li>
+                    <li>Bring gradient under integral: $= \int_\tau \nabla_\theta P(\tau|\theta) R(\tau)$</li>
+                    <li>Apply log-derivative trick: $= \int_\tau P(\tau|\theta) \nabla_\theta \log P(\tau|\theta) R(\tau)$</li>
+                    <li>Return to expectation form: $= \mathbb{E}_{\tau \sim \pi_\theta}[\nabla_\theta \log P(\tau|\theta) R(\tau)]$</li>
+                </ol>
+
+                <h3>Simplifying the Log Probability</h3>
+                <p>When we take the gradient with respect to $\theta$, only the policy terms remain (environment dynamics don't depend on $\theta$):</p>
+                
+                <div class="katex-display">
+                    $$\nabla_\theta \log P(\tau|\theta) = \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t)$$
+                </div>
+
+                <h3>The REINFORCE Estimator</h3>
+                <p>We approximate the expectation with a sample mean by collecting a dataset D of trajectories:</p>
+                
+                <div class="katex-display">
+                    $$\hat{g} = \frac{1}{|D|} \sum_{\tau \in D} \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t) R(\tau)$$
+                </div>
+            </section>
+
+            <!-- Reducing Variance -->
+            <section id="variance">
+                <h2>Reducing Variance</h2>
+                
+                <h3>The Problem with REINFORCE</h3>
+                <p>The gradient estimator we found is <strong>unbiased</strong> (converges to true gradient on average) but has <strong>high variance</strong>, making training unstable.</p>
+
+                <h3>Trick 1: Rewards-to-Go</h3>
+                <p>Past rewards are irrelevant to future actions. We can remove them:</p>
+                
+                <div class="katex-display">
+                    $$\nabla_\theta J(\theta) \approx \frac{1}{N} \sum_{i=1}^{N} \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_{i,t}|s_{i,t}) \sum_{t'=t}^{T} r(s_{i,t'}, a_{i,t'})$$
+                </div>
+                
+                <p>The sum $\sum_{t'=t}^{T} r(s_{i,t'}, a_{i,t'})$ is called <strong>"rewards-to-go"</strong>.</p>
+
+                <h3>Trick 2: Baseline Subtraction</h3>
+                <p>We can subtract a <strong>baseline</strong> $b$ from the rewards-to-go without introducing bias. A natural choice is the <strong>value function</strong> $V^\pi(s)$.</p>
+
+                <h3>The Advantage Function</h3>
+                <p>Using both Q (action-value) and V (state-value), we get the <strong>Advantage function</strong>:</p>
+                
+                <div class="katex-display">
+                    $$A^\pi(s, a) = Q^\pi(s, a) - V^\pi(s)$$
+                </div>
+
+                <div class="key-insight">
+                    <p><strong>Interpreting the Advantage:</strong><br>
+                    $A > 0$: This action is better than average → increase its probability<br>
+                    $A < 0$: This action is worse than average → decrease its probability<br>
+                    $A = 0$: This action is average → no change</p>
+                </div>
+
+                <h3>Generalized Advantage Estimation (GAE)</h3>
+                <p>GAE balances bias and variance using a weighted sum with decay parameter $\lambda$:</p>
+                
+                <div class="katex-display">
+                    $$\delta_t = r_t + \gamma V^\pi(s_{t+1}) - V^\pi(s_t)$$
+                </div>
+                <div class="katex-display">
+                    $$\hat{A}_t = \delta_t + \gamma\lambda\hat{A}_{t+1}$$
+                </div>
+                
+                <p>This is a <strong>recursive formula</strong> that computes advantages backwards from the end of the trajectory.</p>
+            </section>
+
+            <!-- Importance Sampling -->
+            <section id="importance-sampling">
+                <h2>Importance Sampling and Off-Policy Learning</h2>
+                
+                <h3>The Second Problem: Sample Inefficiency</h3>
+                <p>The gradient estimator requires sampling trajectories from the <strong>current policy</strong> every time we update parameters. After each gradient step, we have a <strong>new policy</strong> but our trajectories came from the <strong>old policy</strong>!</p>
+                
+                <div class="callout callout-warning">
+                    <div class="callout-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        The Problem
+                    </div>
+                    <p>Sampling trajectories (generating text) is computationally expensive. Without importance sampling, we'd throw away all data after each gradient step!</p>
+                </div>
+
+                <h3>Why Two Distributions?</h3>
+                <p>Importance sampling allows us to compute an expectation over one distribution using samples from a <strong>different</strong> distribution:</p>
+                
+                <table>
+                    <thead>
+                        <tr><th>Distribution</th><th>Role</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>$p(x) = \pi_{\theta_{\text{online}}}$</td><td>Current policy (what we WANT)</td></tr>
+                        <tr><td>$q(x) = \pi_{\theta_{\text{offline}}}$</td><td>Old policy (what we HAVE)</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>The Mathematical Foundation</h3>
+                <p>We can reweight samples from $q$ to "correct" for the fact that they didn't come from $p$:</p>
+                
+                <div class="katex-display">
+                    $$\mathbb{E}_{x \sim p(x)}[f(x)] = \mathbb{E}_{x \sim q(x)}\left[\frac{p(x)}{q(x)}f(x)\right]$$
+                </div>
+                
+                <p>The <strong>importance weight</strong> $\frac{p(x)}{q(x)}$ corrects for the mismatch between distributions.</p>
+
+                <h3>Intuitive Example</h3>
+                <p>Imagine you want to know the average height of NBA players (distribution $p$), but you only have measurements from random American men (distribution $q$):</p>
+                <ul>
+                    <li><strong>Tall people</strong>: More likely under $p$ than $q$ → weight > 1 → count them more</li>
+                    <li><strong>Short people</strong>: Less likely under $p$ than $q$ → weight < 1 → count them less</li>
+                </ul>
+
+                <h3>The Importance Weight for Actions</h3>
+                <p>For policy gradients, the importance weight for a single action is:</p>
+                
+                <div class="katex-display">
+                    $$\frac{\pi_{\theta_{\text{online}}}(a_t|s_t)}{\pi_{\theta_{\text{offline}}}(a_t|s_t)}$$
+                </div>
+
+                <div class="key-insight">
+                    <p><strong>What the ratio means:</strong><br>
+                    <strong>Ratio > 1:</strong> New policy thinks this action is MORE likely → amplify contribution<br>
+                    <strong>Ratio < 1:</strong> New policy thinks this action is LESS likely → diminish contribution<br>
+                    <strong>Ratio = 1:</strong> Both policies agree → no correction needed</p>
+                </div>
+
+                <h3>Why This Enables Multiple Updates</h3>
+                <ol class="steps">
+                    <li><strong>Sample trajectories ONCE</strong> using policy $\pi_{\theta_{\text{offline}}}$</li>
+                    <li><strong>Perform K gradient updates</strong> on $\pi_{\theta_{\text{online}}}$, reweighting with importance ratios</li>
+                    <li><strong>After K updates:</strong> Set $\theta_{\text{offline}} = \theta_{\text{online}}$ and sample fresh trajectories</li>
+                    <li><strong>Repeat</strong></li>
+                </ol>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        The Catch: Distribution Drift
+                    </div>
+                    <p>If policies become too different, importance weights become extreme (very large or very small), causing instability. <strong>This is exactly why PPO uses clipping!</strong></p>
+                </div>
+            </section>
+
+            <!-- PPO -->
+            <section id="ppo">
+                <h2>The PPO Algorithm</h2>
+                
+                <h3>The PPO Clipped Objective</h3>
+                <p>PPO prevents too-large policy updates by clipping the importance ratio:</p>
+                
+                <div class="katex-display">
+                    $$L^{\text{CLIP}} = \min\left(\frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}\hat{A}_t, \text{clip}\left(\frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}, 1-\epsilon, 1+\epsilon\right)\hat{A}_t\right)$$
+                </div>
+                
+                <p>The clipping keeps the ratio in $[1-\epsilon, 1+\epsilon]$, preventing destabilizing large updates.</p>
+
+                <h3>Complete PPO Loss</h3>
+                <div class="katex-display">
+                    $$L^{\text{PPO}} = L^{\text{CLIP}} + c_1 L^{\text{VF}} + c_2 L^{\text{ENTROPY}}$$
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr><th>Term</th><th>Purpose</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>$L^{\text{CLIP}}$</td><td>Policy loss (clipped)</td></tr>
+                        <tr><td>$L^{\text{VF}}$</td><td>Value function loss (trains the value head)</td></tr>
+                        <tr><td>$L^{\text{ENTROPY}}$</td><td>Entropy bonus (encourages exploration)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Reward Hacking -->
+            <section id="reward-hacking">
+                <h2>Reward Hacking and KL Divergence</h2>
+                
+                <h3>The Problem</h3>
+                <p>If we apply vanilla PPO, the language model may learn to output <strong>whatever the reward model wants to see</strong> to maximize return, even if it diverges significantly from natural language. This is called <strong>reward hacking</strong>.</p>
+
+                <h3>The Solution: KL Penalty</h3>
+                <p>We want the model to get good rewards while still outputting text similar to its pre-training distribution. For every reward, we penalize by the <strong>KL-divergence</strong>:</p>
+                
+                <div class="katex-display">
+                    $$\text{Reward}_{\text{final}} = \text{Reward}_{\text{model}} - \beta \cdot \text{KL}(\pi_{\text{policy}} \| \pi_{\text{frozen}})$$
+                </div>
+                
+                <p>This keeps the optimized policy close to the original language model while improving alignment.</p>
+
+                <h3>Architecture Summary</h3>
+                <p>During RLHF training, we have:</p>
+                
+                <table>
+                    <thead>
+                        <tr><th>Component</th><th>Role</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>Policy Model</strong></td><td>Generates responses, gets updated</td></tr>
+                        <tr><td><strong>Frozen Reference</strong></td><td>Original LM, used for KL penalty</td></tr>
+                        <tr><td><strong>Reward Model</strong></td><td>Scores responses (trained separately)</td></tr>
+                        <tr><td><strong>Value Head</strong></td><td>Estimates state values for advantage</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Conclusion -->
+            <section id="conclusion">
+                <h2>Conclusion</h2>
+                <p>RLHF with PPO is a powerful technique for aligning language models with human preferences. The key insights are:</p>
+                
+                <ol>
+                    <li><strong>Reward models</strong> can be trained from pairwise comparisons, which are much easier to collect than absolute scores</li>
+                    <li><strong>Policy gradients</strong> allow us to optimize the language model to maximize expected reward</li>
+                    <li><strong>Variance reduction techniques</strong> (rewards-to-go, baselines, GAE) make training stable</li>
+                    <li><strong>Importance sampling</strong> enables efficient off-policy learning</li>
+                    <li><strong>PPO's clipping</strong> prevents destructive large updates</li>
+                    <li><strong>KL penalty</strong> prevents reward hacking and keeps outputs natural</li>
+                </ol>
+
+                <div class="callout callout-success">
+                    <div class="callout-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Key Takeaway
+                    </div>
+                    <p>The combination of these techniques has enabled the creation of helpful, harmless, and honest AI assistants like ChatGPT and Claude.</p>
+                </div>
+            </section>
+        </article>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <h3>References</h3>
+            <div class="references">
+                <ul>
+                    <li>Umar Jamil's RLHF-PPO presentation: <a href="https://github.com/hkproj/rlhf-ppo">github.com/hkproj/rlhf-ppo</a></li>
+                    <li>Video: <a href="https://youtu.be/qGyFrqc34yc">youtu.be/qGyFrqc34yc</a></li>
+                    <li>Schulman et al. "Proximal Policy Optimization Algorithms" (2017)</li>
+                    <li>Ouyang et al. "Training language models to follow instructions with human feedback" (2022)</li>
+                </ul>
+            </div>
+            <p style="margin-top: 2rem; color: var(--color-text-muted); font-size: 0.9rem;">
+                <em>This blog post was created from detailed study notes taken while watching Umar Jamil's excellent presentation on RLHF and PPO.</em>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Render math
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ],
+                throwOnError: false
+            });
+        });
+
+        // Progress bar
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById('progressBar').style.width = scrolled + '%';
+        });
+
+        // Active TOC highlighting
+        const sections = document.querySelectorAll('section[id]');
+        const tocLinks = document.querySelectorAll('.toc-list a');
+
+        const observerOptions = {
+            rootMargin: '-20% 0px -80% 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    tocLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === '#' + entry.target.id) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(section => observer.observe(section));
+
+        // Smooth scroll for TOC links
+        tocLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                targetSection.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Cat Grid Game
+        const GridGame = {
+            GRID_SIZE: 6,
+            cat: { x: 0, y: 0 },
+            items: {
+                broom: { x: 1, y: 0, reward: -1, emoji: '🧹' },
+                bath: { x: 3, y: 3, reward: -10, emoji: '🛁' },
+                meat: { x: 5, y: 4, reward: 100, emoji: '🍖' }
+            },
+            totalReward: 0,
+            steps: 0,
+            lastReward: null,
+            trajectory: [],
+            gameOver: false,
+            visited: new Set(),
+
+            init() {
+                this.createGrid();
+                this.bindControls();
+                this.reset();
+            },
+
+            createGrid() {
+                const grid = document.getElementById('gridWorld');
+                grid.innerHTML = '';
+                for (let y = 0; y < this.GRID_SIZE; y++) {
+                    for (let x = 0; x < this.GRID_SIZE; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.id = cell-${x}-${y};
+                        cell.dataset.x = x;
+                        cell.dataset.y = y;
+                        grid.appendChild(cell);
+                    }
+                }
+            },
+
+            bindControls() {
+                document.getElementById('btnUp').addEventListener('click', () => this.move('up'));
+                document.getElementById('btnDown').addEventListener('click', () => this.move('down'));
+                document.getElementById('btnLeft').addEventListener('click', () => this.move('left'));
+                document.getElementById('btnRight').addEventListener('click', () => this.move('right'));
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+
+                document.addEventListener('keydown', (e) => {
+                    if (this.gameOver) return;
+                    switch(e.key) {
+                        case 'ArrowUp': e.preventDefault(); this.move('up'); break;
+                        case 'ArrowDown': e.preventDefault(); this.move('down'); break;
+                        case 'ArrowLeft': e.preventDefault(); this.move('left'); break;
+                        case 'ArrowRight': e.preventDefault(); this.move('right'); break;
+                    }
+                });
+            },
+
+            reset() {
+                this.cat = { x: 0, y: 0 };
+                this.totalReward = 0;
+                this.steps = 0;
+                this.lastReward = null;
+                this.trajectory = [(s₀, -)];
+                this.gameOver = false;
+                this.visited = new Set();
+                this.visited.add('0-0');
+                this.updateDisplay();
+                this.hideMessage();
+            },
+
+            move(direction) {
+                if (this.gameOver) return;
+
+                let newX = this.cat.x;
+                let newY = this.cat.y;
+                let actionSymbol = '';
+
+                switch(direction) {
+                    case 'up': newY = Math.max(0, this.cat.y - 1); actionSymbol = '↑'; break;
+                    case 'down': newY = Math.min(this.GRID_SIZE - 1, this.cat.y + 1); actionSymbol = '↓'; break;
+                    case 'left': newX = Math.max(0, this.cat.x - 1); actionSymbol = '←'; break;
+                    case 'right': newX = Math.min(this.GRID_SIZE - 1, this.cat.x + 1); actionSymbol = '→'; break;
+                }
+
+                if (newX === this.cat.x && newY === this.cat.y) return;
+
+                this.cat.x = newX;
+                this.cat.y = newY;
+                this.steps++;
+                this.visited.add(${newX}-${newY});
+
+                let reward = 0;
+                let hitItem = null;
+
+                for (const [name, item] of Object.entries(this.items)) {
+                    if (item.x === newX && item.y === newY) {
+                        reward = item.reward;
+                        hitItem = name;
+                        break;
+                    }
+                }
+
+                this.totalReward += reward;
+                this.lastReward = reward;
+
+                this.trajectory.push((s${this.steps}, ${actionSymbol}));
+
+                if (hitItem === 'bath') {
+                    this.gameOver = true;
+                    this.showMessage('lose', '😿 Oh no! The cat fell into the bathtub! Game Over.');
+                } else if (hitItem === 'meat') {
+                    this.gameOver = true;
+                    this.showMessage('win', '🎉 The cat found the meat! Total reward: ' + this.totalReward);
+                }
+
+                this.updateDisplay();
+            },
+
+            updateDisplay() {
+                // Clear all cells
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    cell.innerHTML = '';
+                    cell.className = 'grid-cell';
+                    const x = parseInt(cell.dataset.x);
+                    const y = parseInt(cell.dataset.y);
+                    if (this.visited.has(${x}-${y})) {
+                        cell.classList.add('visited');
+                    }
+                });
+
+                // Place items
+                for (const [name, item] of Object.entries(this.items)) {
+                    const cell = document.getElementById(cell-${item.x}-${item.y});
+                    if (cell) {
+                        cell.innerHTML = item.emoji;
+                        cell.classList.add(${name}-cell);
+                    }
+                }
+
+                // Place cat
+                const catCell = document.getElementById(cell-${this.cat.x}-${this.cat.y});
+                if (catCell) {
+                    const existingContent = catCell.innerHTML;
+                    catCell.innerHTML = existingContent ? existingContent + '🐱' : '🐱';
+                    catCell.classList.add('cat-cell');
+                }
+
+                // Update scores
+                document.getElementById('totalReward').textContent = this.totalReward;
+                document.getElementById('totalReward').className = 'score-value ' + 
+                    (this.totalReward > 0 ? 'positive' : this.totalReward < 0 ? 'negative' : '');
+                
+                document.getElementById('stepCount').textContent = this.steps;
+                
+                const lastRewardEl = document.getElementById('lastReward');
+                lastRewardEl.textContent = this.lastReward !== null ? 
+                    (this.lastReward >= 0 ? '+' : '') + this.lastReward : '-';
+                lastRewardEl.className = 'score-value ' + 
+                    (this.lastReward > 0 ? 'positive' : this.lastReward < 0 ? 'negative' : '');
+
+                // Update trajectory
+                document.getElementById('trajectoryDisplay').textContent = this.trajectory.join(' → ');
+            },
+
+            showMessage(type, text) {
+                const msg = document.getElementById('gameMessage');
+                msg.className = 'game-message ' + type;
+                msg.textContent = text;
+            },
+
+            hideMessage() {
+                document.getElementById('gameMessage').className = 'game-message';
+            }
+        };
+
+        // Initialize game when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            GridGame.init();
+            DiscountedGame.init();
+        });
+
+        // Discounted Rewards Game
+        const DiscountedGame = {
+            GRID_SIZE: 6,
+            cat: { x: 0, y: 0 },
+            gamma: 0.9,
+            items: {
+                fish1: { x: 2, y: 0, reward: 10, emoji: '🐟' },
+                fish2: { x: 1, y: 2, reward: 10, emoji: '🐟' },
+                broom1: { x: 3, y: 1, reward: -5, emoji: '🧹' },
+                broom2: { x: 2, y: 3, reward: -5, emoji: '🧹' },
+                meat: { x: 5, y: 4, reward: 50, emoji: '🍖' }
+            },
+            rawReward: 0,
+            discountedReward: 0,
+            steps: 0,
+            rewardHistory: [],
+            trajectory: [],
+            gameOver: false,
+            visited: new Set(),
+
+            init() {
+                this.createGrid();
+                this.bindControls();
+                this.reset();
+            },
+
+            createGrid() {
+                const grid = document.getElementById('gridWorld2');
+                grid.innerHTML = '';
+                for (let y = 0; y < this.GRID_SIZE; y++) {
+                    for (let x = 0; x < this.GRID_SIZE; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.id = cell2-${x}-${y};
+                        cell.dataset.x = x;
+                        cell.dataset.y = y;
+                        grid.appendChild(cell);
+                    }
+                }
+            },
+
+            bindControls() {
+                document.getElementById('btnUp2').addEventListener('click', () => this.move('up'));
+                document.getElementById('btnDown2').addEventListener('click', () => this.move('down'));
+                document.getElementById('btnLeft2').addEventListener('click', () => this.move('left'));
+                document.getElementById('btnRight2').addEventListener('click', () => this.move('right'));
+                document.getElementById('resetBtn2').addEventListener('click', () => this.reset());
+
+                // Gamma selector
+                document.querySelectorAll('.gamma-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.gamma-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.gamma = parseFloat(btn.dataset.gamma);
+                        this.reset();
+                    });
+                });
+
+                // Keyboard controls (using WASD for second game)
+                document.addEventListener('keydown', (e) => {
+                    if (this.gameOver) return;
+                    switch(e.key.toLowerCase()) {
+                        case 'w': this.move('up'); break;
+                        case 's': this.move('down'); break;
+                        case 'a': this.move('left'); break;
+                        case 'd': 
+                            // Only if not in drawing mode
+                            if (!document.getElementById('annotationCanvas').classList.contains('active')) {
+                                // Don't move - D is for drawing toggle
+                            }
+                            break;
+                    }
+                });
+            },
+
+            reset() {
+                this.cat = { x: 0, y: 0 };
+                this.rawReward = 0;
+                this.discountedReward = 0;
+                this.steps = 0;
+                this.rewardHistory = [];
+                this.trajectory = ['(s₀)'];
+                this.gameOver = false;
+                this.visited = new Set();
+                this.visited.add('0-0');
+                
+                // Reset items (they can be collected again)
+                this.collectedItems = new Set();
+                
+                this.updateDisplay();
+                this.hideMessage();
+            },
+
+            move(direction) {
+                if (this.gameOver) return;
+
+                let newX = this.cat.x;
+                let newY = this.cat.y;
+                let actionSymbol = '';
+
+                switch(direction) {
+                    case 'up': newY = Math.max(0, this.cat.y - 1); actionSymbol = '↑'; break;
+                    case 'down': newY = Math.min(this.GRID_SIZE - 1, this.cat.y + 1); actionSymbol = '↓'; break;
+                    case 'left': newX = Math.max(0, this.cat.x - 1); actionSymbol = '←'; break;
+                    case 'right': newX = Math.min(this.GRID_SIZE - 1, this.cat.x + 1); actionSymbol = '→'; break;
+                }
+
+                if (newX === this.cat.x && newY === this.cat.y) return;
+
+                this.cat.x = newX;
+                this.cat.y = newY;
+                this.visited.add(${newX}-${newY});
+
+                let reward = 0;
+                let hitItem = null;
+
+                for (const [name, item] of Object.entries(this.items)) {
+                    if (item.x === newX && item.y === newY && !this.collectedItems.has(name)) {
+                        reward = item.reward;
+                        hitItem = name;
+                        this.collectedItems.add(name);
+                        break;
+                    }
+                }
+
+                // Calculate discounted reward for this step
+                const discountFactor = Math.pow(this.gamma, this.steps);
+                const discountedStepReward = reward * discountFactor;
+
+                this.rawReward += reward;
+                this.discountedReward += discountedStepReward;
+                
+                if (reward !== 0) {
+                    this.rewardHistory.push({
+                        step: this.steps,
+                        reward: reward,
+                        discountFactor: discountFactor,
+                        discountedReward: discountedStepReward
+                    });
+                }
+
+                this.steps++;
+                this.trajectory.push((s${this.steps}, ${actionSymbol}));
+
+                if (hitItem === 'meat') {
+                    this.gameOver = true;
+                    const comparison = this.gamma < 1 ? 
+                         (${((this.discountedReward / this.rawReward) * 100).toFixed(1)}% of raw due to discounting) : '';
+                    this.showMessage('win', Goal reached in ${this.steps} steps! Discounted Return: ${this.discountedReward.toFixed(2)}${comparison});
+                }
+
+                this.updateDisplay();
+            },
+
+            updateDisplay() {
+                // Clear all cells
+                document.querySelectorAll('#gridWorld2 .grid-cell').forEach(cell => {
+                    cell.innerHTML = '';
+                    cell.className = 'grid-cell';
+                    const x = parseInt(cell.dataset.x);
+                    const y = parseInt(cell.dataset.y);
+                    if (this.visited.has(${x}-${y})) {
+                        cell.classList.add('visited');
+                    }
+                });
+
+                // Place items (only if not collected)
+                for (const [name, item] of Object.entries(this.items)) {
+                    if (!this.collectedItems.has(name)) {
+                        const cell = document.getElementById(cell2-${item.x}-${item.y});
+                        if (cell) {
+                            cell.innerHTML = item.emoji;
+                            if (name.startsWith('fish')) cell.classList.add('fish-cell');
+                            else if (name.startsWith('broom')) cell.classList.add('broom-cell');
+                            else if (name === 'meat') cell.classList.add('meat-cell');
+                        }
+                    }
+                }
+
+                // Place cat
+                const catCell = document.getElementById(cell2-${this.cat.x}-${this.cat.y});
+                if (catCell) {
+                    const existingContent = catCell.innerHTML;
+                    catCell.innerHTML = existingContent ? existingContent + '🐱' : '🐱';
+                    catCell.classList.add('cat-cell');
+                }
+
+                // Update scores
+                document.getElementById('rawReward2').textContent = this.rawReward;
+                document.getElementById('rawReward2').className = 'score-value ' + 
+                    (this.rawReward > 0 ? 'positive' : this.rawReward < 0 ? 'negative' : '');
+                
+                document.getElementById('discountedReward2').textContent = this.discountedReward.toFixed(2);
+                document.getElementById('discountedReward2').className = 'score-value ' + 
+                    (this.discountedReward > 0 ? 'positive' : this.discountedReward < 0 ? 'negative' : '');
+                
+                document.getElementById('stepCount2').textContent = this.steps;
+                
+                const currentDiscount = Math.pow(this.gamma, this.steps);
+                document.getElementById('currentDiscount2').textContent = currentDiscount.toFixed(4);
+
+                // Update trajectory
+                document.getElementById('trajectoryDisplay2').textContent = this.trajectory.join(' → ');
+
+                // Update reward breakdown
+                this.updateBreakdown();
+            },
+
+            updateBreakdown() {
+                if (this.rewardHistory.length === 0) {
+                    document.getElementById('breakdownContent2').innerHTML = 'R = 0 (no rewards collected yet)';
+                    return;
+                }
+
+                let breakdownHTML = 'R = ';
+                const terms = this.rewardHistory.map((h, i) => {
+                    const gammaStr = h.step === 0 ? '' : 
+                        (h.step === 1 ? <span class="discount-term">${this.gamma}</span> ×  : 
+                        <span class="discount-term">${this.gamma}<sup>${h.step}</sup></span> × );
+                    const rewardStr = <span class="reward-term">(${h.reward > 0 ? '+' : ''}${h.reward})</span>;
+                    return gammaStr + rewardStr;
+                });
+                
+                breakdownHTML += terms.join(' + ');
+                breakdownHTML +=  = <strong>${this.discountedReward.toFixed(2)}</strong>;
+                
+                document.getElementById('breakdownContent2').innerHTML = breakdownHTML;
+            },
+
+            showMessage(type, text) {
+                const msg = document.getElementById('gameMessage2');
+                msg.className = 'game-message ' + type;
+                msg.textContent = text;
+            },
+
+            hideMessage() {
+                document.getElementById('gameMessage2').className = 'game-message';
+            }
+        };
+
+        // Simple Drawing System
+        (function() {
+            const canvas = document.getElementById('annotationCanvas');
+            const ctx = canvas.getContext('2d');
+            const toolbar = document.getElementById('annotationToolbar');
+            const toggleBtn = document.getElementById('presentationToggle');
+            const indicator = document.getElementById('modeIndicator');
+            
+            let isActive = false;
+            let isDrawing = false;
+            let currentColor = '#E74C3C';
+            let currentTool = 'pen';
+            let lineWidth = 3;
+            let lastX = 0;
+            let lastY = 0;
+            let paths = [];
+            let currentPath = [];
+
+            // Setup canvas size
+            function resizeCanvas() {
+                const rect = document.documentElement;
+                canvas.width = Math.max(rect.scrollWidth, window.innerWidth);
+                canvas.height = Math.max(rect.scrollHeight, window.innerHeight + 1000);
+                redrawAll();
+            }
+
+            // Redraw all saved paths
+            function redrawAll() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                paths.forEach(path => {
+                    if (path.points.length < 2) return;
+                    ctx.beginPath();
+                    ctx.strokeStyle = path.color;
+                    ctx.lineWidth = path.width;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        ctx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    ctx.stroke();
+                });
+            }
+
+            // Get coordinates relative to page
+            function getCoords(e) {
+                if (e.touches) {
+                    return {
+                        x: e.touches[0].pageX,
+                        y: e.touches[0].pageY
+                    };
+                }
+                return {
+                    x: e.pageX,
+                    y: e.pageY
+                };
+            }
+
+            // Start drawing
+            function startDraw(e) {
+                if (!isActive) return;
+                isDrawing = true;
+                const coords = getCoords(e);
+                lastX = coords.x;
+                lastY = coords.y;
+                currentPath = [{x: lastX, y: lastY}];
+                
+                ctx.beginPath();
+                ctx.strokeStyle = currentTool === 'eraser' ? '#FDFBF7' : currentColor;
+                ctx.lineWidth = currentTool === 'eraser' ? 30 : lineWidth;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.moveTo(lastX, lastY);
+            }
+
+            // Draw
+            function draw(e) {
+                if (!isDrawing || !isActive) return;
+                e.preventDefault();
+                
+                const coords = getCoords(e);
+                const x = coords.x;
+                const y = coords.y;
+                
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                
+                currentPath.push({x: x, y: y});
+                lastX = x;
+                lastY = y;
+            }
+
+            // Stop drawing
+            function stopDraw() {
+                if (isDrawing && currentPath.length > 1) {
+                    paths.push({
+                        points: currentPath,
+                        color: currentTool === 'eraser' ? '#FDFBF7' : currentColor,
+                        width: currentTool === 'eraser' ? 30 : lineWidth
+                    });
+                }
+                isDrawing = false;
+                currentPath = [];
+            }
+
+            // Toggle drawing mode
+            function toggleMode() {
+                isActive = !isActive;
+                
+                if (isActive) {
+                    canvas.classList.add('active');
+                    toolbar.classList.add('visible');
+                    indicator.classList.add('visible');
+                    toggleBtn.classList.add('active');
+                    toggleBtn.innerHTML = '&#10005;';
+                    resizeCanvas();
+                } else {
+                    canvas.classList.remove('active');
+                    toolbar.classList.remove('visible');
+                    indicator.classList.remove('visible');
+                    toggleBtn.classList.remove('active');
+                    toggleBtn.innerHTML = '&#9998;';
+                }
+            }
+
+            // Undo last path
+            function undo() {
+                if (paths.length > 0) {
+                    paths.pop();
+                    redrawAll();
+                }
+            }
+
+            // Clear all
+            function clearAll() {
+                paths = [];
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Event listeners
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDraw);
+            canvas.addEventListener('mouseleave', stopDraw);
+
+            canvas.addEventListener('touchstart', startDraw, {passive: false});
+            canvas.addEventListener('touchmove', draw, {passive: false});
+            canvas.addEventListener('touchend', stopDraw);
+
+            toggleBtn.addEventListener('click', toggleMode);
+
+            document.getElementById('penTool').addEventListener('click', function() {
+                currentTool = 'pen';
+                lineWidth = 3;
+                document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+
+            document.getElementById('eraserTool').addEventListener('click', function() {
+                currentTool = 'eraser';
+                document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    currentColor = this.dataset.color;
+                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('clearBtn').addEventListener('click', clearAll);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'd' || e.key === 'D') {
+                    if (!e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+                        toggleMode();
+                    }
+                }
+                if (e.key === 'Escape' && isActive) {
+                    toggleMode();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && isActive) {
+                    e.preventDefault();
+                    undo();
+                }
+            });
+
+            // Initial setup
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('scroll', function() {
+                if (canvas.height < document.documentElement.scrollHeight) {
+                    resizeCanvas();
+                }
+            });
+            
+            resizeCanvas();
+        })();
+    </script>
+</body>
+</html>

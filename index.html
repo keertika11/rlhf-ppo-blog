@@ -1395,6 +1395,20 @@
                 </div>
                 <p>In a bandit, each arm has an unknown expected reward \(\mu_a = \mathbb{E}[R \mid a]\). Learning means estimating these means from data.</p>
 
+                <div class="example">
+                    <div class="example-title">Same expected value, different risk</div>
+                    <p>Suppose you can choose between two one-step actions:</p>
+                    <ul>
+                        <li><strong>Action A (safe):</strong> guaranteed reward of 50.</li>
+                        <li><strong>Action B (risky):</strong> 50% chance of reward 100, 50% chance of reward 0.</li>
+                    </ul>
+                    <p>Both actions have the same expected value:</p>
+                    <div class="katex-display">
+                        $$\mathbb{E}[R\mid A]=50,\qquad \mathbb{E}[R\mid B]=0.5\cdot 100 + 0.5\cdot 0 = 50$$
+                    </div>
+                    <p>But Action B has much higher variance, so outcomes are less predictable from episode to episode. This is why RL does not only care about means in practice: two choices can look identical in expectation while producing very different training stability and risk profiles.</p>
+                </div>
+
                 <h3>Integration (Why it matters in RL)</h3>
                 <p>Integration is the continuous analog of summation. In RL, many expectations are over continuous state/action spaces, so integrals generalize formulas that are sums in tabular/discrete settings.</p>
 

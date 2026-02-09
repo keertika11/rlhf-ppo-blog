@@ -1345,6 +1345,7 @@
             <section id="introduction">
                 <h2>Introduction</h2>
                 <p>Reinforcement Learning from Human Feedback (RLHF) has become the cornerstone technique for aligning large language models with human preferences. This blog post provides a comprehensive walkthrough of RLHF and Proximal Policy Optimization (PPO), covering the mathematical foundations, intuitions, and practical implementation details.</p>
+                <p><strong>Reading flow:</strong> we start with probability + bandits, then build core RL concepts (policy/value/trajectory), then derive REINFORCE, reduce variance with advantage estimation, add importance sampling, and finally connect everything to PPO-based RLHF for language models. If a section feels dense, keep going—later sections repeatedly tie back to the same core objects.</p>
                 
                 <div class="callout callout-info">
                     <div class="callout-title">
@@ -1429,6 +1430,16 @@
                 <div class="katex-display">
                     $$Q^{\pi}(s,a) = \mathbb{E}_{\pi}[\sum_{t=0}^{\infty} \gamma^t r_t \mid s_0=s,a_0=a]$$
                 </div>
+                <p><strong>Intuition:</strong> $V^\pi(s)$ answers "How good is this state on average?" while $Q^\pi(s,a)$ answers "How good is taking this specific action right now, then following policy $\pi$ afterwards?" So $Q$ is action-specific and therefore more granular than $V$.</p>
+                <div class="example">
+                    <div class="example-title">Q-function intuition with next-token generation</div>
+                    <p>Suppose the state is a prompt prefix: <code>"The capital of France is"</code>.</p>
+                    <ul>
+                        <li>$Q(s, \text{" Paris"})$ should be high because this action usually leads to high reward (correct, helpful continuation).</li>
+                        <li>$Q(s, \text{" banana"})$ should be low because it likely leads to poor downstream quality.</li>
+                    </ul>
+                    <p>The value $V(s)$ is the average quality over all tokens sampled by the current policy at that state, while $Q(s,a)$ isolates one token choice. Their gap becomes the advantage signal used to push good tokens up and bad tokens down.</p>
+                </div>
                 <p>The critic provides learning signals to improve the actor.</p>
 
                 <h3>Expected Reward (Objective)</h3>
@@ -1446,6 +1457,22 @@
 
                 <h3>Markov Decision Process (MDP)</h3>
                 <p>An MDP formalizes RL as \((\mathcal{S},\mathcal{A},P,R,\gamma)\): states, actions, transition dynamics, reward function, and discount factor. The Markov property means the next-state distribution depends only on the current state and action, not the full past history.</p>
+                <div class="example">
+                    <div class="example-title">Concrete MDP Example (Chat Assistant)</div>
+                    <table>
+                        <thead>
+                            <tr><th>MDP Term</th><th>Example in an LLM Assistant</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>State</strong> $s_t$</td><td>Prompt + conversation history so far</td></tr>
+                            <tr><td><strong>Action</strong> $a_t$</td><td>Next token chosen by the model</td></tr>
+                            <tr><td><strong>Transition</strong> $P(s_{t+1}|s_t,a_t)$</td><td>Append token to context; user/environment may add new input</td></tr>
+                            <tr><td><strong>Reward</strong> $r_t$</td><td>Reward-model score (often at sequence end) with KL penalty shaping</td></tr>
+                            <tr><td><strong>Discount</strong> $\gamma$</td><td>Controls preference for immediate vs later rewards</td></tr>
+                        </tbody>
+                    </table>
+                    <p>Mini trajectory: <code>s_0="User: Explain PPO"</code> → choose token <code>a_0="PPO"</code> → new state <code>s_1</code> includes that token → continue until EOS; total reward is computed over the full rollout.</p>
+                </div>
 
                 <div class="key-insight">
                     <strong>Bridge to RLHF:</strong> Bandits are the one-step version of RL (no state transitions). MDPs generalize that to sequential decision making, which is exactly what token-by-token language generation requires.
@@ -1749,8 +1776,9 @@ Time 3: "Where is Shanghai? Shanghai is in" -> LLM -> "China"</code></pre>
                 <p>The loss function for training the reward model is:</p>
                 
                 <div class="katex-display">
-                    $$\text{Loss} = -\log \sigma(r(x, y_w) - r(x, y_l))$$
+                    $$\text{Loss} = -\ln \sigma(r(x, y_w) - r(x, y_l))$$
                 </div>
+                <p>(We use the natural logarithm. If you use base-10 log, the numeric value is different.)</p>
                 
                 <p>Where $r(x, y_w)$ is the reward for the <strong>winning</strong> response and $r(x, y_l)$ is the reward for the <strong>losing</strong> response.</p>
 
@@ -1760,7 +1788,7 @@ Time 3: "Where is Shanghai? Shanghai is in" -> LLM -> "China"</code></pre>
 r(x, y_l) = 0.5 (bad answer)
 Difference = 1 - 0.5 = 0.5
 sigma(0.5) = 0.625
--log(0.625) = 0.204 (small loss - good!)</code></pre>
+-ln(0.625) = 0.470 (natural log)</code></pre>
                 </div>
 
                 <div class="example">
@@ -1769,7 +1797,8 @@ sigma(0.5) = 0.625
 r(x, y_l) = 1 (bad answer, but scored high)
 Difference = 0.5 - 1 = -0.5
 sigma(-0.5) = 0.3754
--log(0.3754) = 0.450 (larger loss - model penalized!)</code></pre>
+-ln(0.3754) = 0.980 (natural log)
+-log10(0.3754) = 0.425 (base-10 log)</code></pre>
                 </div>
 
                 <p>This loss forces the model to give high rewards to "winning" responses and low rewards to "losing" responses.</p>
@@ -1904,6 +1933,7 @@ sigma(-0.5) = 0.3754
                     $A < 0$: This action is worse than average → decrease its probability<br>
                     $A = 0$: This action is average → no change</p>
                 </div>
+                <p>You can view this as a two-step decomposition: (1) estimate the overall quality of the situation with $V(s)$, then (2) ask whether a specific action does better or worse than that baseline via $Q(s,a)-V(s)$. This baseline subtraction is exactly why advantage-based updates have lower variance than using raw returns everywhere.</p>
 
                 <h3>Generalized Advantage Estimation (GAE)</h3>
                 <p>GAE balances bias and variance using a weighted sum with decay parameter $\lambda$:</p>
@@ -1983,6 +2013,20 @@ sigma(-0.5) = 0.3754
                     <li><strong>After K updates:</strong> Set $\theta_{\text{offline}} = \theta_{\text{online}}$ and sample fresh trajectories</li>
                     <li><strong>Repeat</strong></li>
                 </ol>
+
+                <div class="figure">
+                    <div class="flow-diagram">
+                        <span class="flow-box">Collect rollouts<br><small>(old policy)</small></span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box">Compute advantages</span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box">Importance ratio<br><small>$\pi_{new}/\pi_{old}$</small></span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box">K PPO updates</span>
+                        <span class="flow-arrow">→</span>
+                        <span class="flow-box highlight">Refresh old policy</span>
+                    </div>
+                </div>
 
                 <div class="callout callout-info">
                     <div class="callout-title">

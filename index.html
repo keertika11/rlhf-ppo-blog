@@ -2074,7 +2074,7 @@ sigma(-0.5) = 0.3754
                     for (let x = 0; x < this.GRID_SIZE; x++) {
                         const cell = document.createElement('div');
                         cell.className = 'grid-cell';
-                        cell.id = cell-${x}-${y};
+                        cell.id = `cell-${x}-${y}`;
                         cell.dataset.x = x;
                         cell.dataset.y = y;
                         grid.appendChild(cell);
@@ -2105,7 +2105,7 @@ sigma(-0.5) = 0.3754
                 this.totalReward = 0;
                 this.steps = 0;
                 this.lastReward = null;
-                this.trajectory = [(s₀, -)];
+                this.trajectory = ['(s₀, -)'];
                 this.gameOver = false;
                 this.visited = new Set();
                 this.visited.add('0-0');
@@ -2132,7 +2132,7 @@ sigma(-0.5) = 0.3754
                 this.cat.x = newX;
                 this.cat.y = newY;
                 this.steps++;
-                this.visited.add(${newX}-${newY});
+                this.visited.add(`${newX}-${newY}`);
 
                 let reward = 0;
                 let hitItem = null;
@@ -2148,14 +2148,14 @@ sigma(-0.5) = 0.3754
                 this.totalReward += reward;
                 this.lastReward = reward;
 
-                this.trajectory.push((s${this.steps}, ${actionSymbol}));
+                this.trajectory.push(`(s${this.steps}, ${actionSymbol})`);
 
                 if (hitItem === 'bath') {
                     this.gameOver = true;
                     this.showMessage('lose', '😿 Oh no! The cat fell into the bathtub! Game Over.');
                 } else if (hitItem === 'meat') {
                     this.gameOver = true;
-                    this.showMessage('win', '🎉 The cat found the meat! Total reward: ' + this.totalReward);
+                    this.showMessage('win', `🎉 The cat found the meat! Total reward: ${this.totalReward}`);
                 }
 
                 this.updateDisplay();
@@ -2163,27 +2163,27 @@ sigma(-0.5) = 0.3754
 
             updateDisplay() {
                 // Clear all cells
-                document.querySelectorAll('.grid-cell').forEach(cell => {
+                document.querySelectorAll('#gridWorld .grid-cell').forEach(cell => {
                     cell.innerHTML = '';
                     cell.className = 'grid-cell';
-                    const x = parseInt(cell.dataset.x);
-                    const y = parseInt(cell.dataset.y);
-                    if (this.visited.has(${x}-${y})) {
+                    const x = parseInt(cell.dataset.x, 10);
+                    const y = parseInt(cell.dataset.y, 10);
+                    if (this.visited.has(`${x}-${y}`)) {
                         cell.classList.add('visited');
                     }
                 });
 
                 // Place items
                 for (const [name, item] of Object.entries(this.items)) {
-                    const cell = document.getElementById(cell-${item.x}-${item.y});
+                    const cell = document.getElementById(`cell-${item.x}-${item.y}`);
                     if (cell) {
                         cell.innerHTML = item.emoji;
-                        cell.classList.add(${name}-cell);
+                        cell.classList.add(`${name}-cell`);
                     }
                 }
 
                 // Place cat
-                const catCell = document.getElementById(cell-${this.cat.x}-${this.cat.y});
+                const catCell = document.getElementById(`cell-${this.cat.x}-${this.cat.y}`);
                 if (catCell) {
                     const existingContent = catCell.innerHTML;
                     catCell.innerHTML = existingContent ? existingContent + '🐱' : '🐱';
@@ -2192,15 +2192,15 @@ sigma(-0.5) = 0.3754
 
                 // Update scores
                 document.getElementById('totalReward').textContent = this.totalReward;
-                document.getElementById('totalReward').className = 'score-value ' + 
+                document.getElementById('totalReward').className = 'score-value ' +
                     (this.totalReward > 0 ? 'positive' : this.totalReward < 0 ? 'negative' : '');
-                
+
                 document.getElementById('stepCount').textContent = this.steps;
-                
+
                 const lastRewardEl = document.getElementById('lastReward');
-                lastRewardEl.textContent = this.lastReward !== null ? 
+                lastRewardEl.textContent = this.lastReward !== null ?
                     (this.lastReward >= 0 ? '+' : '') + this.lastReward : '-';
-                lastRewardEl.className = 'score-value ' + 
+                lastRewardEl.className = 'score-value ' +
                     (this.lastReward > 0 ? 'positive' : this.lastReward < 0 ? 'negative' : '');
 
                 // Update trajectory
@@ -2243,6 +2243,7 @@ sigma(-0.5) = 0.3754
             trajectory: [],
             gameOver: false,
             visited: new Set(),
+            collectedItems: new Set(),
 
             init() {
                 this.createGrid();
@@ -2257,7 +2258,7 @@ sigma(-0.5) = 0.3754
                     for (let x = 0; x < this.GRID_SIZE; x++) {
                         const cell = document.createElement('div');
                         cell.className = 'grid-cell';
-                        cell.id = cell2-${x}-${y};
+                        cell.id = `cell2-${x}-${y}`;
                         cell.dataset.x = x;
                         cell.dataset.y = y;
                         grid.appendChild(cell);
@@ -2272,7 +2273,6 @@ sigma(-0.5) = 0.3754
                 document.getElementById('btnRight2').addEventListener('click', () => this.move('right'));
                 document.getElementById('resetBtn2').addEventListener('click', () => this.reset());
 
-                // Gamma selector
                 document.querySelectorAll('.gamma-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
                         document.querySelectorAll('.gamma-btn').forEach(b => b.classList.remove('active'));
@@ -2289,12 +2289,7 @@ sigma(-0.5) = 0.3754
                         case 'w': this.move('up'); break;
                         case 's': this.move('down'); break;
                         case 'a': this.move('left'); break;
-                        case 'd': 
-                            // Only if not in drawing mode
-                            if (!document.getElementById('annotationCanvas').classList.contains('active')) {
-                                // Don't move - D is for drawing toggle
-                            }
-                            break;
+                        case 'd': this.move('right'); break;
                     }
                 });
             },
@@ -2309,10 +2304,8 @@ sigma(-0.5) = 0.3754
                 this.gameOver = false;
                 this.visited = new Set();
                 this.visited.add('0-0');
-                
-                // Reset items (they can be collected again)
                 this.collectedItems = new Set();
-                
+
                 this.updateDisplay();
                 this.hideMessage();
             },
@@ -2335,7 +2328,7 @@ sigma(-0.5) = 0.3754
 
                 this.cat.x = newX;
                 this.cat.y = newY;
-                this.visited.add(${newX}-${newY});
+                this.visited.add(`${newX}-${newY}`);
 
                 let reward = 0;
                 let hitItem = null;
@@ -2349,13 +2342,12 @@ sigma(-0.5) = 0.3754
                     }
                 }
 
-                // Calculate discounted reward for this step
                 const discountFactor = Math.pow(this.gamma, this.steps);
                 const discountedStepReward = reward * discountFactor;
 
                 this.rawReward += reward;
                 this.discountedReward += discountedStepReward;
-                
+
                 if (reward !== 0) {
                     this.rewardHistory.push({
                         step: this.steps,
@@ -2366,34 +2358,33 @@ sigma(-0.5) = 0.3754
                 }
 
                 this.steps++;
-                this.trajectory.push((s${this.steps}, ${actionSymbol}));
+                this.trajectory.push(`(s${this.steps}, ${actionSymbol})`);
 
                 if (hitItem === 'meat') {
                     this.gameOver = true;
-                    const comparison = this.gamma < 1 ? 
-                         (${((this.discountedReward / this.rawReward) * 100).toFixed(1)}% of raw due to discounting) : '';
-                    this.showMessage('win', Goal reached in ${this.steps} steps! Discounted Return: ${this.discountedReward.toFixed(2)}${comparison});
+                    const comparison = (this.gamma < 1 && this.rawReward !== 0)
+                        ? ` (${((this.discountedReward / this.rawReward) * 100).toFixed(1)}% of raw due to discounting)`
+                        : '';
+                    this.showMessage('win', `Goal reached in ${this.steps} steps! Discounted Return: ${this.discountedReward.toFixed(2)}${comparison}`);
                 }
 
                 this.updateDisplay();
             },
 
             updateDisplay() {
-                // Clear all cells
                 document.querySelectorAll('#gridWorld2 .grid-cell').forEach(cell => {
                     cell.innerHTML = '';
                     cell.className = 'grid-cell';
-                    const x = parseInt(cell.dataset.x);
-                    const y = parseInt(cell.dataset.y);
-                    if (this.visited.has(${x}-${y})) {
+                    const x = parseInt(cell.dataset.x, 10);
+                    const y = parseInt(cell.dataset.y, 10);
+                    if (this.visited.has(`${x}-${y}`)) {
                         cell.classList.add('visited');
                     }
                 });
 
-                // Place items (only if not collected)
                 for (const [name, item] of Object.entries(this.items)) {
                     if (!this.collectedItems.has(name)) {
-                        const cell = document.getElementById(cell2-${item.x}-${item.y});
+                        const cell = document.getElementById(`cell2-${item.x}-${item.y}`);
                         if (cell) {
                             cell.innerHTML = item.emoji;
                             if (name.startsWith('fish')) cell.classList.add('fish-cell');
@@ -2403,32 +2394,27 @@ sigma(-0.5) = 0.3754
                     }
                 }
 
-                // Place cat
-                const catCell = document.getElementById(cell2-${this.cat.x}-${this.cat.y});
+                const catCell = document.getElementById(`cell2-${this.cat.x}-${this.cat.y}`);
                 if (catCell) {
                     const existingContent = catCell.innerHTML;
                     catCell.innerHTML = existingContent ? existingContent + '🐱' : '🐱';
                     catCell.classList.add('cat-cell');
                 }
 
-                // Update scores
                 document.getElementById('rawReward2').textContent = this.rawReward;
-                document.getElementById('rawReward2').className = 'score-value ' + 
+                document.getElementById('rawReward2').className = 'score-value ' +
                     (this.rawReward > 0 ? 'positive' : this.rawReward < 0 ? 'negative' : '');
-                
+
                 document.getElementById('discountedReward2').textContent = this.discountedReward.toFixed(2);
-                document.getElementById('discountedReward2').className = 'score-value ' + 
+                document.getElementById('discountedReward2').className = 'score-value ' +
                     (this.discountedReward > 0 ? 'positive' : this.discountedReward < 0 ? 'negative' : '');
-                
+
                 document.getElementById('stepCount2').textContent = this.steps;
-                
+
                 const currentDiscount = Math.pow(this.gamma, this.steps);
                 document.getElementById('currentDiscount2').textContent = currentDiscount.toFixed(4);
-
-                // Update trajectory
                 document.getElementById('trajectoryDisplay2').textContent = this.trajectory.join(' → ');
 
-                // Update reward breakdown
                 this.updateBreakdown();
             },
 
@@ -2439,17 +2425,18 @@ sigma(-0.5) = 0.3754
                 }
 
                 let breakdownHTML = 'R = ';
-                const terms = this.rewardHistory.map((h, i) => {
-                    const gammaStr = h.step === 0 ? '' : 
-                        (h.step === 1 ? <span class="discount-term">${this.gamma}</span> ×  : 
-                        <span class="discount-term">${this.gamma}<sup>${h.step}</sup></span> × );
-                    const rewardStr = <span class="reward-term">(${h.reward > 0 ? '+' : ''}${h.reward})</span>;
+                const terms = this.rewardHistory.map((h) => {
+                    const gammaStr = h.step === 0 ? '' :
+                        (h.step === 1
+                            ? `<span class="discount-term">${this.gamma}</span> × `
+                            : `<span class="discount-term">${this.gamma}<sup>${h.step}</sup></span> × `);
+                    const rewardStr = `<span class="reward-term">(${h.reward > 0 ? '+' : ''}${h.reward})</span>`;
                     return gammaStr + rewardStr;
                 });
-                
+
                 breakdownHTML += terms.join(' + ');
-                breakdownHTML +=  = <strong>${this.discountedReward.toFixed(2)}</strong>;
-                
+                breakdownHTML += ` = <strong>${this.discountedReward.toFixed(2)}</strong>`;
+
                 document.getElementById('breakdownContent2').innerHTML = breakdownHTML;
             },
 

@@ -1409,75 +1409,19 @@
                     <p>But Action B has much higher variance, so outcomes are less predictable from episode to episode. This is why RL does not only care about means in practice: two choices can look identical in expectation while producing very different training stability and risk profiles.</p>
                 </div>
 
-                diff --git a/index.html b/index.html
-index f711feda20537a8a8687f17b1ca3f0727b79a367..8ee6366ae98f46274c1f165bf53b2766b940dc17 100644
---- a/index.html
-+++ b/index.html
-@@ -1373,50 +1373,64 @@
-                         $$\hat{\mu}_A = \frac{1}{n}\sum_{i=1}^{n} r_i$$
-                     </div>
-                     <p>As \(n\) increases, this estimate becomes more reliable. This exploration-vs-exploitation tradeoff is the seed idea behind reinforcement learning.</p>
-                 </div>
- 
-                 <h3>Probability Basics</h3>
-                 <p>A probability model assigns likelihoods to outcomes so total probability sums to 1. For a discrete random variable \(X\), we use a probability mass function \(P(X=x)\). For continuous variables, we use a probability density function \(f(x)\).</p>
- 
-                 <h3>Discrete vs Continuous Random Variables</h3>
-                 <ul>
-                     <li><strong>Discrete:</strong> countable outcomes (e.g., reward is 0 or 1).</li>
-                     <li><strong>Continuous:</strong> uncountably many values in an interval (e.g., response time, temperature, sensor noise).</li>
-                 </ul>
-                 <p>Bandit rewards can be either type: Bernoulli rewards (discrete) or Gaussian rewards (continuous).</p>
- 
-                 <h3>Expected Value</h3>
-                 <p>The expected value is the long-run average of a random quantity.</p>
-                 <div class="katex-display">
-                     $$\mathbb{E}[X] = \sum_x x P(X=x) \quad \text{(discrete)}$$
-                 </div>
-                 <div class="katex-display">
-                     $$\mathbb{E}[X] = \int_{-\infty}^{\infty} x f(x) \, dx \quad \text{(continuous)}$$
-                 </div>
-                 <p>In a bandit, each arm has an unknown expected reward \(\mu_a = \mathbb{E}[R \mid a]\). Learning means estimating these means from data.</p>
- 
-+                <div class="example">
-+                    <div class="example-title">Job choice intuition: steady vs uncertain pay</div>
-+                    <p>Imagine choosing between two delivery jobs for tonight:</p>
-+                    <ul>
-+                        <li><strong>Job A (steady):</strong> guaranteed payout of $40.</li>
-+                        <li><strong>Job B (uncertain):</strong> 50% chance of $100 and 50% chance of $0.</li>
-+                    </ul>
-+                    <p>The expected values are:</p>
-+                    <div class="katex-display">
-+                        $$\mathbb{E}[\text{Job A}] = 40,\qquad \mathbb{E}[\text{Job B}] = 0.5\cdot 100 + 0.5\cdot 0 = 50$$
-+                    </div>
-+                    <p>So Job B has higher expected value in the long run, but also more risk on any single night. This is the key EV intuition: it predicts average payoff across repeated trials, not guaranteed outcome in one trial.</p>
-+                </div>
-+
-                 <h3>Integration (Why it matters in RL)</h3>
-                 <p>Integration is the continuous analog of summation. In RL, many expectations are over continuous state/action spaces, so integrals generalize formulas that are sums in tabular/discrete settings.</p>
- 
-                 <h3>Stochastic Variables &amp; Stochastic Processes</h3>
-                 <p>A <strong>random (stochastic) variable</strong> is one uncertain quantity at one time. A <strong>stochastic process</strong> is a sequence of random variables over time, such as \((S_0, A_0, R_0, S_1, ...)\). RL is fundamentally about controlling such processes.</p>
- 
-                 <h3>Variance</h3>
-                 <p>Variance measures spread around the mean:</p>
-                 <div class="katex-display">
-                     $$\mathrm{Var}(X) = \mathbb{E}[(X-\mathbb{E}[X])^2]$$
-                 </div>
-                 <p>High-variance rewards make learning harder: your estimate of arm quality (or policy quality) needs more samples to stabilize.</p>
- 
-                 <h3>What is a Gradient?</h3>
-                 <p>A gradient tells us the direction of steepest increase of a function. In optimization, we usually move in the opposite direction to minimize loss. In policy gradients, we use gradients to directly increase expected reward.</p>
- 
-                 <h3>RL Basics: Agent, Environment, State, Action</h3>
-                 <ul>
-                     <li><strong>Agent:</strong> the learner/decision maker.</li>
-                     <li><strong>Environment:</strong> everything the agent interacts with.</li>
-                     <li><strong>State \(s\):</strong> information summarizing the current situation.</li>
-                     <li><strong>Action \(a\):</strong> a choice made by the agent.</li>
-                 </ul>
- 
-                 <h3>Policy (Actor)</h3>
+                <div class="example">
+                    <div class="example-title">Job choice intuition: steady vs uncertain pay</div>
+                    <p>Imagine choosing between two delivery jobs for tonight:</p>
+                    <ul>
+                        <li><strong>Job A (steady):</strong> guaranteed payout of $40.</li>
+                        <li><strong>Job B (uncertain):</strong> 50% chance of $100 and 50% chance of $0.</li>
+                    </ul>
+                    <p>The expected values are:</p>
+                    <div class="katex-display">
+                        $$\mathbb{E}[\text{Job A}] = 40,\qquad \mathbb{E}[\text{Job B}] = 0.5\cdot 100 + 0.5\cdot 0 = 50$$
+                    </div>
+                    <p>So Job B has higher expected value in the long run, but also more risk on any single night. This is the key EV intuition: it predicts average payoff across repeated trials, not guaranteed outcome in one trial.</p>
+                </div>
 
 
                 <h3>Integration (Why it matters in RL)</h3>

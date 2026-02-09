@@ -1846,11 +1846,23 @@ sigma(-0.5) = 0.3754
                 </ol>
 
                 <h3>Simplifying the Log Probability</h3>
-                <p>When we take the gradient with respect to $\theta$, only the policy terms remain (environment dynamics don't depend on $\theta$):</p>
-                
+                <p>Start from trajectory factorization:</p>
                 <div class="katex-display">
-                    $$\nabla_\theta \log P(\tau|\theta) = \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t)$$
+                    $$P(\tau\mid\theta)=\rho_0(s_0)\prod_{t=0}^{T-1}\pi_\theta(a_t\mid s_t)P(s_{t+1}\mid s_t,a_t)$$
                 </div>
+                <p>Take logarithm (product becomes sum):</p>
+                <div class="katex-display">
+                    $$\log P(\tau\mid\theta)=\log\rho_0(s_0)+\sum_{t=0}^{T-1}\log\pi_\theta(a_t\mid s_t)+\sum_{t=0}^{T-1}\log P(s_{t+1}\mid s_t,a_t)$$
+                </div>
+                <p>Now take gradient w.r.t. \(\theta\). The initial-state term and transition dynamics are environment terms, so they do not depend on \(\theta\):</p>
+                <div class="katex-display">
+                    $$\nabla_\theta\log\rho_0(s_0)=0,\qquad \nabla_\theta\log P(s_{t+1}\mid s_t,a_t)=0$$
+                </div>
+                <p>So only policy terms remain:</p>
+                <div class="katex-display">
+                    $$\nabla_\theta \log P(\tau\mid\theta)=\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(a_t\mid s_t)$$
+                </div>
+                <p>This is why policy-gradient estimators are sums of per-step score terms multiplied by return (or advantage).</p>
 
                 <h3>The REINFORCE Estimator</h3>
                 <p>We approximate the expectation with a sample mean by collecting a dataset D of trajectories:</p>
@@ -2091,6 +2103,8 @@ sigma(-0.5) = 0.3754
             renderMathInElement(document.body, {
                 delimiters: [
                     {left: "$$", right: "$$", display: true},
+                    {left: "\\[", right: "\\]", display: true},
+                    {left: "\\(", right: "\\)", display: false},
                     {left: "$", right: "$", display: false}
                 ],
                 throwOnError: false

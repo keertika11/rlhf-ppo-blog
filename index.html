@@ -1395,6 +1395,20 @@
                 </div>
                 <p>In a bandit, each arm has an unknown expected reward \(\mu_a = \mathbb{E}[R \mid a]\). Learning means estimating these means from data.</p>
 
+                <div class="example">
+                    <div class="example-title">Job choice intuition: steady vs uncertain pay</div>
+                    <p>Imagine choosing between two delivery jobs for tonight:</p>
+                    <ul>
+                        <li><strong>Job A (steady):</strong> guaranteed payout of $40.</li>
+                        <li><strong>Job B (uncertain):</strong> 50% chance of $100 and 50% chance of $0.</li>
+                    </ul>
+                    <p>The expected values are:</p>
+                    <div class="katex-display">
+                        $$\mathbb{E}[\text{Job A}] = 40,\qquad \mathbb{E}[\text{Job B}] = 0.5\cdot 100 + 0.5\cdot 0 = 50$$
+                    </div>
+                    <p>So Job B has higher expected value in the long run, but also more risk on any single night. This is the key EV intuition: it predicts average payoff across repeated trials, not guaranteed outcome in one trial.</p>
+                </div>
+
                 <h3>Integration (Why it matters in RL)</h3>
                 <p>Integration is the continuous analog of summation. In RL, many expectations are over continuous state/action spaces, so integrals generalize formulas that are sums in tabular/discrete settings.</p>
 

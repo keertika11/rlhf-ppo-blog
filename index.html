@@ -1375,19 +1375,13 @@
                 </div>
 
                 <h3>Probability Basics</h3>
-                <p>A probability model assigns likelihoods to outcomes so total probability is 1. For a discrete random variable \(X\), probabilities are assigned through a PMF; for a continuous variable, through a PDF.</p>
-                <div class="katex-display">
-                    $$\sum_x P(X=x)=1 \quad \text{and} \quad \int_{-\infty}^{\infty} f_X(x)\,dx=1$$
-                </div>
+                <p>A probability model assigns likelihoods to outcomes so total probability sums to 1. For a discrete random variable \(X\), we use a probability mass function \(P(X=x)\). For continuous variables, we use a probability density function \(f(x)\).</p>
 
                 <h3>Discrete vs Continuous Random Variables</h3>
                 <ul>
                     <li><strong>Discrete:</strong> countable outcomes (e.g., reward is 0 or 1).</li>
-                    <li><strong>Continuous:</strong> uncountably many values in an interval (e.g., latency, sensor noise).</li>
+                    <li><strong>Continuous:</strong> uncountably many values in an interval (e.g., response time, temperature, sensor noise).</li>
                 </ul>
-                <div class="katex-display">
-                    $$P(X\in A)=\sum_{x\in A}P(X=x)\ \text{(discrete)}, \qquad P(X\in A)=\int_A f_X(x)\,dx\ \text{(continuous)}$$
-                </div>
                 <p>Bandit rewards can be either type: Bernoulli rewards (discrete) or Gaussian rewards (continuous).</p>
 
                 <h3>Expected Value</h3>
@@ -1401,30 +1395,20 @@
                 <p>In a bandit, each arm has an unknown expected reward \(\mu_a = \mathbb{E}[R \mid a]\). Learning means estimating these means from data.</p>
 
                 <h3>Integration (Why it matters in RL)</h3>
-                <p>Integration is the continuous analog of summation. In RL, expectations in continuous spaces are written as integrals:</p>
-                <div class="katex-display">
-                    $$\mathbb{E}_{s\sim p}[g(s)] = \int g(s)p(s)\,ds$$
-                </div>
+                <p>Integration is the continuous analog of summation. In RL, many expectations are over continuous state/action spaces, so integrals generalize formulas that are sums in tabular/discrete settings.</p>
 
                 <h3>Stochastic Variables &amp; Stochastic Processes</h3>
-                <p>A <strong>random (stochastic) variable</strong> is one uncertain quantity at one time. A <strong>stochastic process</strong> is a sequence of random variables over time.</p>
-                <div class="katex-display">
-                    $$\{X_t\}_{t\ge 0}, \quad \text{e.g. } (S_0,A_0,R_0,S_1,\ldots)$$
-                </div>
+                <p>A <strong>random (stochastic) variable</strong> is one uncertain quantity at one time. A <strong>stochastic process</strong> is a sequence of random variables over time, such as \((S_0, A_0, R_0, S_1, ...)\). RL is fundamentally about controlling such processes.</p>
 
                 <h3>Variance</h3>
                 <p>Variance measures spread around the mean:</p>
                 <div class="katex-display">
-                    $$\mathrm{Var}(X) = \mathbb{E}[(X-\mathbb{E}[X])^2] = \mathbb{E}[X^2]-\mathbb{E}[X]^2$$
+                    $$\mathrm{Var}(X) = \mathbb{E}[(X-\mathbb{E}[X])^2]$$
                 </div>
-                <p>High-variance rewards make learning harder because estimates need more samples to stabilize.</p>
+                <p>High-variance rewards make learning harder: your estimate of arm quality (or policy quality) needs more samples to stabilize.</p>
 
                 <h3>What is a Gradient?</h3>
-                <p>A gradient gives the direction of steepest increase of a function.</p>
-                <div class="katex-display">
-                    $$\nabla_\theta J(\theta)=\left[\frac{\partial J}{\partial \theta_1},\ldots,\frac{\partial J}{\partial \theta_d}\right]$$
-                </div>
-                <p>For maximization (policy gradient), update parameters with \(\theta\leftarrow\theta+\alpha\nabla_\theta J(\theta)\).</p>
+                <p>A gradient tells us the direction of steepest increase of a function. In optimization, we usually move in the opposite direction to minimize loss. In policy gradients, we use gradients to directly increase expected reward.</p>
 
                 <h3>RL Basics: Agent, Environment, State, Action</h3>
                 <ul>
@@ -1433,15 +1417,9 @@
                     <li><strong>State \(s\):</strong> information summarizing the current situation.</li>
                     <li><strong>Action \(a\):</strong> a choice made by the agent.</li>
                 </ul>
-                <div class="katex-display">
-                    $$s_{t+1}\sim P(\cdot\mid s_t,a_t), \qquad r_t=R(s_t,a_t)$$
-                </div>
 
                 <h3>Policy (Actor)</h3>
-                <p>The policy \(\pi_\theta(a\mid s)\) is the agent's behavior rule.</p>
-                <div class="katex-display">
-                    $$a_t\sim\pi_\theta(\cdot\mid s_t), \qquad \sum_a\pi_\theta(a\mid s)=1$$
-                </div>
+                <p>The policy \(\pi_\theta(a\mid s)\) is the agent's behavior rule: given state \(s\), how likely is each action \(a\)? In actor-critic methods, this is the <strong>actor</strong>.</p>
 
                 <h3>Value Function (Critic)</h3>
                 <p>The value function estimates future return. Common forms are:</p>
@@ -1451,21 +1429,12 @@
                 <div class="katex-display">
                     $$Q^{\pi}(s,a) = \mathbb{E}_{\pi}[\sum_{t=0}^{\infty} \gamma^t r_t \mid s_0=s,a_0=a]$$
                 </div>
-                <p>The advantage quantifies how much better an action is than baseline state value:</p>
-                <div class="katex-display">
-                    $$A^{\pi}(s,a)=Q^{\pi}(s,a)-V^{\pi}(s)$$
-                </div>
-
-                <h3>State</h3>
-                <p>A valid state is a sufficient summary for decision making. Under the Markov property:</p>
-                <div class="katex-display">
-                    $$P(s_{t+1}\mid s_t,a_t,\text{history})=P(s_{t+1}\mid s_t,a_t)$$
-                </div>
+                <p>The critic provides learning signals to improve the actor.</p>
 
                 <h3>Expected Reward (Objective)</h3>
                 <p>The RL objective is to find policy parameters \(\theta\) that maximize expected return:</p>
                 <div class="katex-display">
-                    $$J(\theta)=\mathbb{E}_{\tau \sim \pi_\theta}[R(\tau)], \qquad R(\tau)=\sum_{t=0}^{T}\gamma^t r_t$$
+                    $$J(\theta)=\mathbb{E}_{\tau \sim \pi_\theta}[R(\tau)]$$
                 </div>
 
                 <h3>Cumulative Probabilities (Trajectory Probability)</h3>
@@ -1473,12 +1442,10 @@
                 <div class="katex-display">
                     $$P(\tau)=\rho_0(s_0)\prod_{t=0}^{T-1}\pi_\theta(a_t\mid s_t)P(s_{t+1}\mid s_t,a_t)$$
                 </div>
+                <p>This factorization is central to REINFORCE and PPO derivations later.</p>
 
                 <h3>Markov Decision Process (MDP)</h3>
-                <p>An MDP formalizes RL as \((\mathcal{S},\mathcal{A},P,R,\gamma)\): states, actions, transition dynamics, reward function, and discount factor.</p>
-                <div class="katex-display">
-                    $$\pi^*=\arg\max_\pi\;\mathbb{E}_{\tau\sim\pi}\left[\sum_{t=0}^{\infty}\gamma^t r_t\right]$$
-                </div>
+                <p>An MDP formalizes RL as \((\mathcal{S},\mathcal{A},P,R,\gamma)\): states, actions, transition dynamics, reward function, and discount factor. The Markov property means the next-state distribution depends only on the current state and action, not the full past history.</p>
 
                 <div class="key-insight">
                     <strong>Bridge to RLHF:</strong> Bandits are the one-step version of RL (no state transitions). MDPs generalize that to sequential decision making, which is exactly what token-by-token language generation requires.
